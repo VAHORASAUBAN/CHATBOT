@@ -171,289 +171,257 @@
 #         print("Bot:", chat(q))
 
 import pandas as pd
-import numpy as np
-import faiss
+import sqlite3
 import requests
 import json
-import sqlite3
-import functools
 from typing import List
-from openai import OpenAI
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-# ============================================================
-# CONNECTION POOLING FOR FASTER HTTP REQUESTS
-# ============================================================
+from langchain.schema import Document
+from langchain.vectorstores import FAISS
+from langchain.embeddings.base import Embeddings
+from langchain.llms.base import LLM
+from langchain.prompts import PromptTemplate
+from langchain.chains import RetrievalQA
 
-session = requests.Session()
-retry = Retry(connect=3, backoff_factor=0.5)
-adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
-session.mount('http://', adapter)
-session.mount('https://', adapter)
-
-# ============================================================
-# RESPONSE CACHING (INSTANT ANSWERS FOR REPEATED QUERIES)
-# ============================================================
-
-query_cache = {}
-
-# ============================================================
+# =====================================================
 # CONFIG
-# ============================================================
+# =====================================================
 
 EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
+SQLITE_DB_PATH = "sgd.db"
+SQLITE_TABLE = "sgd_data"
 
-DB_PATH = "chatbot.db"
-TABLE_NAME = "data"
-
-LLM_BASE_URL = "http://45.127.102.236:5002/v1"
+LLM_BASE_URL = "http://45.127.102.236:8000/v1"
 LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
-EMBEDDING_URL = "http://45.127.102.236:5002/embeddings"
+EMBEDDING_URL = "http://127.0.0.1:5002/embeddings"
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
-TOP_K = 3
+FAISS_INDEX_PATH = "faiss_index_sgd"
+TOP_K = 5
 
-# ============================================================
-# LOAD EXCEL → SQLITE (NUMERIC SOURCE OF TRUTH)
-# ============================================================
+# =====================================================
+# CUSTOM EMBEDDINGS
+# =====================================================
 
-df = pd.read_excel(EXCEL_PATH).fillna("")
+class CustomEmbedding(Embeddings):
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        r = requests.post(
+            EMBEDDING_URL,
+            json={"model": EMBEDDING_MODEL, "input": texts}
+        )
+        r.raise_for_status()
+        return [x["embedding"] for x in r.json()["data"]]
 
-# Fix Excel date / timestamp nonsense
-for col in df.columns:
-    if "date" in col.lower() or "time" in col.lower():
-        df[col] = pd.to_datetime(df[col], errors="coerce")
+    def embed_query(self, text: str) -> List[float]:
+        r = requests.post(
+            EMBEDDING_URL,
+            json={"model": EMBEDDING_MODEL, "input": text}
+        )
+        r.raise_for_status()
+        return r.json()["data"][0]["embedding"]
 
-conn = sqlite3.connect(DB_PATH)
-cursor = conn.cursor()
+# =====================================================
+# CUSTOM LLM
+# =====================================================
 
-df.to_sql(TABLE_NAME, conn, if_exists="replace", index=False)
+class CustomLLM(LLM):
+    @property
+    def _llm_type(self) -> str:
+        return "custom_llama"
 
-# Discover numeric columns from SQL (authoritative)
-cursor.execute(f"PRAGMA table_info({TABLE_NAME})")
-schema = cursor.fetchall()
+    def _call(self, prompt: str, stop=None) -> str:
+        r = requests.post(
+            f"{LLM_BASE_URL}/chat/completions",
+            json={
+                "model": LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a precise data assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0,
+                "max_tokens": 512
+            }
+        )
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
 
-NUMERIC_COLS = [
-    col[1] for col in schema
-    if col[2].upper() in ("INTEGER", "REAL", "FLOAT", "DOUBLE", "NUMERIC")
-]
+# =====================================================
+# LOAD DATA
+# =====================================================
 
-# ============================================================
-# TEXT CHUNKS FOR SEMANTIC SEARCH
-# ============================================================
+def load_excel():
+    return pd.read_excel(EXCEL_PATH).fillna("")
 
-df["text_chunk"] = df.apply(
-    lambda row: " | ".join(f"{col}: {row[col]}" for col in df.columns),
-    axis=1
-)
+# =====================================================
+# SQLITE SETUP
+# =====================================================
 
-# ============================================================
-# EMBEDDING CLIENT WITH CACHING (AVOID REDUNDANT REQUESTS)
-# ============================================================
+def setup_sqlite(df: pd.DataFrame):
+    conn = sqlite3.connect(SQLITE_DB_PATH)
+    df.to_sql(SQLITE_TABLE, conn, if_exists="replace", index=False)
+    conn.close()
 
-@functools.lru_cache(maxsize=1000)
-def get_embedding(text: str) -> tuple:
-    """Cache embeddings to avoid re-requesting same texts"""
-    payload = {
-        "model": EMBEDDING_MODEL,
-        "input": [text]
-    }
-    res = session.post(EMBEDDING_URL, json=payload, timeout=30)
-    res.raise_for_status()
-    return tuple(res.json()["data"][0]["embedding"])
+# =====================================================
+# FAISS SETUP
+# =====================================================
 
-def get_embeddings_batch(texts: List[str]) -> List[List[float]]:
-    """Batch multiple embeddings in one request (more efficient)"""
-    payload = {
-        "model": EMBEDDING_MODEL,
-        "input": texts
-    }
-    res = session.post(EMBEDDING_URL, json=payload, timeout=60)
-    res.raise_for_status()
-    return [item["embedding"] for item in res.json()["data"]]
+def setup_faiss(df: pd.DataFrame):
+    docs = []
+    for _, row in df.iterrows():
+        text = "\n".join([f"{col}: {row[col]}" for col in df.columns])
+        docs.append(Document(page_content=text))
 
-# ============================================================
-# BUILD FAISS INDEX (HNSW IS 2-3X FASTER THAN FLATL2)
-# ============================================================
-
-embeddings_list = []
-for i in range(0, len(df), 32):
-    batch = df["text_chunk"].tolist()[i:i+32]
-    embeddings_list.extend(get_embeddings_batch(batch))
-
-embeddings = np.array(embeddings_list, dtype="float32")
-
-# Use HNSW (Hierarchical Navigable Small World) for fast approximate nearest neighbor search
-faiss_index = faiss.IndexHNSWFlat(embeddings.shape[1], 32)
-faiss_index.add(embeddings)
-
-# ============================================================
-# LLM CLIENT
-# ============================================================
-
-llm_client = OpenAI(
-    base_url=LLM_BASE_URL,
-    api_key="FAKE"
-)
-
-# ============================================================
-# FAST NUMERIC KEYWORD PRE-CHECK (SKIP EXPENSIVE LLM CALL)
-# ============================================================
-
-def has_numeric_keywords(query: str) -> bool:
-    """Quick keyword check before calling expensive LLM"""
-    keywords = {
-        "average", "avg", "sum", "total", "maximum", "minimum",
-        "highest", "lowest", "max", "min", "count", "many"
-    }
-    q_lower = query.lower()
-    return any(k in q_lower for k in keywords)
-
-# ============================================================
-# LLM → NUMERIC INTENT & COLUMN MAPPING
-# ============================================================
-
-def analyze_numeric_intent(query: str) -> dict | None:
-    # Skip expensive LLM call if no numeric keywords
-    if not has_numeric_keywords(query):
-        return None
-    
-    prompt = f"""
-You are a data query analyzer.
-
-Available numeric columns:
-{", ".join(NUMERIC_COLS)}
-
-User query:
-"{query}"
-
-Return ONLY valid JSON.
-
-If numeric intent exists:
-{{
-  "operation": "avg | max | min | sum",
-  "column": "<best matching column>"
-}}
-
-If not numeric:
-{{ "numeric": false }}
-"""
-
-    res = llm_client.chat.completions.create(
-        model=LLM_MODEL,
-        temperature=0,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    embeddings = CustomEmbedding()
 
     try:
-        parsed = json.loads(res.choices[0].message.content)
-        return parsed if "operation" in parsed else None
-    except Exception:
-        return None
+        return FAISS.load_local(
+            FAISS_INDEX_PATH,
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    except:
+        vs = FAISS.from_documents(docs, embeddings)
+        vs.save_local(FAISS_INDEX_PATH)
+        return vs
 
-# ============================================================
-# SQL NUMERIC ENGINE (DETERMINISTIC)
-# ============================================================
+# =====================================================
+# INTENT CLASSIFICATION
+# =====================================================
 
-def run_numeric_query(intent: dict) -> str:
-    col = intent["column"]
-    op = intent["operation"].lower()
+def classify_intent(query: str, llm: CustomLLM) -> str:
+    prompt = f"""
+Classify the question into exactly ONE category:
 
-    sql_map = {
-        "avg": f"SELECT AVG({col}) FROM {TABLE_NAME}",
-        "max": f"SELECT MAX({col}) FROM {TABLE_NAME}",
-        "min": f"SELECT MIN({col}) FROM {TABLE_NAME}",
-        "sum": f"SELECT SUM({col}) FROM {TABLE_NAME}",
-    }
+numeric  : calculations, counts, totals, averages
+semantic : explanations, trends, summaries
+general  : greetings, help, meta questions
 
-    sql = sql_map.get(op)
-    if not sql:
-        return "Numeric operation not supported."
+Return ONLY one word.
 
+Question:
+{query}
+"""
+    return llm._call(prompt).strip().lower()
+
+# =====================================================
+# NUMERIC QUERY → SQL
+# =====================================================
+
+def generate_sql(query: str, df: pd.DataFrame, llm: CustomLLM) -> str:
+    prompt = f"""
+You are generating a SQLite SQL query.
+
+Table name: {SQLITE_TABLE}
+Columns: {list(df.columns)}
+
+The query must:
+- Use aggregation when required (AVG, SUM, COUNT, MIN, MAX)
+- Return accurate value
+- Be valid SQLite
+
+Return SQL ONLY.
+
+Question:
+{query}
+"""
+    return llm._call(prompt).strip()
+
+def execute_sql(sql: str):
+    conn = sqlite3.connect(SQLITE_DB_PATH)
+    cursor = conn.cursor()
     cursor.execute(sql)
-    value = cursor.fetchone()[0]
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
 
-    return f"{op.upper()}({col}) = {value}"
+# =====================================================
+# SEMANTIC (RAG)
+# =====================================================
 
-# ============================================================
-# SEMANTIC ENGINE (RAG) - WITH TOKEN LIMITING
-# ============================================================
-
-def retrieve_context(query: str, max_tokens: int = 500) -> str:
-    """Retrieve top-K chunks but limit total tokens for faster LLM processing"""
-    q_emb = np.array([get_embedding(query)], dtype="float32")
-    _, indices = faiss_index.search(q_emb, TOP_K)
-    
-    context_parts = []
-    token_count = 0
-    
-    for i in indices[0]:
-        chunk = df.iloc[i]["text_chunk"]
-        tokens = len(chunk.split())  # Approximate token count
-        
-        if token_count + tokens > max_tokens:
-            break
-        
-        context_parts.append(chunk)
-        token_count += tokens
-    
-    return "\n".join(context_parts) if context_parts else df.iloc[indices[0][0]]["text_chunk"]
-
-def ask_llm(context: str, question: str) -> str:
-    res = llm_client.chat.completions.create(
-        model=LLM_MODEL,
-        temperature=0,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Answer strictly using the provided context. "
-                    "If the answer is not present, say so."
-                )
-            },
-            {
-                "role": "user",
-                "content": f"Context:\n{context}\n\nQuestion:\n{question}"
-            }
-        ]
+def build_rag_chain(vectorstore, llm):
+    retriever = vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": TOP_K}
     )
-    return res.choices[0].message.content
 
-# ============================================================
-# SINGLE CHAT ENTRY POINT (WITH RESPONSE CACHING)
-# ============================================================
+    prompt = PromptTemplate(
+        input_variables=["context", "question"],
+        template="""
+Answer using the context below.
+If the answer is not present, say so.
 
-def chat(query: str) -> str:
-    # Check cache first for instant response
-    normalized = query.lower().strip()
-    if normalized in query_cache:
-        return query_cache[normalized]
-    
-    numeric_intent = analyze_numeric_intent(query)
+Context:
+{context}
 
-    if numeric_intent:
-        result = run_numeric_query(numeric_intent)
-        query_cache[normalized] = result
-        return result
+Question:
+{question}
 
-    context = retrieve_context(query)
-    result = ask_llm(context, query)
-    query_cache[normalized] = result
-    return result
+Answer:
+"""
+    )
 
-# ============================================================
-# CLI
-# ============================================================
+    return RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        chain_type="stuff",
+        chain_type_kwargs={"prompt": prompt}
+    )
 
-if __name__ == "__main__":
-    print("✅ SQL + FAISS + LLM Hybrid Chatbot Ready")
-    print("Type 'exit' to quit")
+# =====================================================
+# GENERAL (LLM ONLY)
+# =====================================================
+
+def handle_general(query: str, llm: CustomLLM):
+    prompt = f"""
+Respond to the user. Do NOT use any dataset.
+
+Question:
+{query}
+"""
+    return llm._call(prompt)
+
+# =====================================================
+# MAIN
+# =====================================================
+
+def main():
+    print("📄 Loading dataset...")
+    df = load_excel()
+
+    print("🗄️ Setting up SQLite...")
+    setup_sqlite(df)
+
+    print("🧠 Setting up FAISS...")
+    vectorstore = setup_faiss(df)
+
+    llm = CustomLLM()
+    rag_chain = build_rag_chain(vectorstore, llm)
+
+    print("\n🤖 Hybrid SQL + RAG Chatbot Ready (type 'exit')\n")
 
     while True:
-        q = input("\nUser: ")
-        if q.lower() in {"exit", "quit"}:
+        query = input("You: ")
+        if query.lower() in ["exit", "quit"]:
             break
-        print("Bot:", chat(q))
-    
+
+        intent = classify_intent(query, llm)
+
+        if intent == "numeric":
+            sql = generate_sql(query, df, llm)
+            result = execute_sql(sql)
+            print("\nBot:", result, "\n")
+            continue
+
+        if intent == "semantic":
+            print("\nBot:", rag_chain.invoke(query), "\n")
+            continue
+
+        print("\nBot:", handle_general(query, llm), "\n")
+
+# =====================================================
+# ENTRY
+# =====================================================
+
+if __name__ == "__main__":
+    main()
