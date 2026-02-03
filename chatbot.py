@@ -536,595 +536,430 @@
 # if __name__ == "__main__":
 #     main()
 
-# import pandas as pd
-# import sqlite3
-# import faiss
-# import numpy as np
-# import json
-# import os
-# import requests
-# from typing import TypedDict, Optional
-
-# from langgraph.graph import StateGraph, END
-# from openai import OpenAI
-
-# # ============================================================
-# # CONFIG
-# # ============================================================
-
-# EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
-# SQLITE_DB = "rag.db"
-# FAISS_INDEX = "faiss.index"
-# TEXTS_FILE = "texts.npy"
-
-# LLM_BASE_URL = "http://45.127.102.236:8000/v1"
-# LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
-
-# EMBEDDING_URL = "http://127.0.0.1:5002/embeddings"
-# EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-
-# TOP_K = 5
-
-# client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
-
-# # ============================================================
-# # EMBEDDING CLIENT
-# # ============================================================
-
-# def embed_texts(texts):
-#     r = requests.post(
-#         EMBEDDING_URL,
-#         json={"model": EMBEDDING_MODEL, "input": texts},
-#         timeout=60
-#     )
-#     data = r.json()["data"]
-#     vecs = [d["embedding"] for d in data]
-#     return np.array(vecs, dtype=np.float32)
-
-# # ============================================================
-# # SMART EXCEL → SQLITE INGESTION (NaT SAFE)
-# # ============================================================
-
-# def infer_sqlite_type(dtype):
-#     if pd.api.types.is_integer_dtype(dtype):
-#         return "INTEGER"
-#     if pd.api.types.is_float_dtype(dtype):
-#         return "REAL"
-#     if pd.api.types.is_bool_dtype(dtype):
-#         return "INTEGER"
-#     if pd.api.types.is_datetime64_any_dtype(dtype):
-#         return "TEXT"
-#     return "TEXT"
-
-
-# def sanitize_value(x):
-#     if pd.isna(x):
-#         return None
-
-#     if isinstance(x, pd.Timestamp):
-#         return x.isoformat()
-
-#     if isinstance(x, bool):
-#         return int(x)
-
-#     return x
-
-
-# def excel_to_sqlite():
-#     print("Building SQLite schema from Excel...")
-
-#     df = pd.read_excel(EXCEL_PATH)
-
-#     # clean column names
-#     df.columns = [
-#         col.strip()
-#         .replace(" ", "_")
-#         .replace("-", "_")
-#         .replace("/", "_")
-#         for col in df.columns
-#     ]
-
-#     # sanitize dataframe
-#     df = df.applymap(sanitize_value)
-
-#     # infer schema
-#     schema = {
-#         col: infer_sqlite_type(df[col].dtype)
-#         for col in df.columns
-#     }
-
-#     conn = sqlite3.connect(SQLITE_DB)
-#     cur = conn.cursor()
-
-#     cur.execute("DROP TABLE IF EXISTS data")
-
-#     columns_sql = ", ".join(
-#         [f'"{col}" {dtype}' for col, dtype in schema.items()]
-#     )
-
-#     create_sql = f"CREATE TABLE data ({columns_sql})"
-#     cur.execute(create_sql)
-
-#     placeholders = ", ".join(["?"] * len(df.columns))
-#     insert_sql = f'INSERT INTO data VALUES ({placeholders})'
-
-#     cur.executemany(insert_sql, df.values.tolist())
-
-#     conn.commit()
-#     conn.close()
-
-#     print("SQLite ready with sanitized data.")
-
-
-# def row_to_text(row):
-#     return " | ".join([f"{col}: {row[col]}" for col in row.index])
-
-# def build_vector_index():
-#     df = pd.read_excel(EXCEL_PATH)
-#     texts = df.apply(row_to_text, axis=1).tolist()
-
-#     embeddings = embed_texts(texts)
-#     faiss.normalize_L2(embeddings)
-
-#     dim = embeddings.shape[1]
-#     index = faiss.IndexFlatIP(dim)
-#     index.add(embeddings)
-
-#     faiss.write_index(index, FAISS_INDEX)
-#     np.save(TEXTS_FILE, np.array(texts, dtype=object))
-
-# # ============================================================
-# # LLM CALL
-# # ============================================================
-
-# def llm(prompt: str) -> str:
-#     resp = client.chat.completions.create(
-#         model=LLM_MODEL,
-#         messages=[{"role": "user", "content": prompt}],
-#         temperature=0
-#     )
-#     return resp.choices[0].message.content.strip()
-
-# # ============================================================
-# # INTENT DETECTION
-# # ============================================================
-
-# # ============================================================
-# # INTENT DETECTION (NO JSON)
-# # ============================================================
-
-# def detect_intent(query: str):
-#     prompt = f"""
-# Classify this query into ONE word only:
-
-# numeric → math, aggregation, totals, counts
-# semantic → meaning or explanation from data
-# meta → general knowledge
-
-# Answer with exactly one word:
-# numeric OR semantic OR meta
-
-# Query:
-# {query}
-# """
-
-#     out = llm(prompt).lower().strip()
-
-#     # hard guard against model rambling
-#     if "numeric" in out:
-#         return "numeric"
-#     if "meta" in out:
-#         return "meta"
-#     return "semantic"
-
-
-# # ============================================================
-# # SQL ENGINE (AST + QUERY PLANNER SAFE)
-# # ============================================================
-
-# import sqlglot
-# from sqlglot import exp
-
-
-# def clean_sql(text: str) -> str:
-#     text = text.strip()
-
-#     if "```" in text:
-#         parts = text.split("```")
-#         if len(parts) >= 2:
-#             text = parts[1]
-
-#     return text.strip()
-
-
-# def ast_validate(sql: str) -> bool:
-#     try:
-#         tree = sqlglot.parse_one(sql)
-
-#         # must be SELECT
-#         if not isinstance(tree, exp.Select):
-#             return False
-
-#         # enforce table whitelist
-#         tables = {t.name.lower() for t in tree.find_all(exp.Table)}
-#         if tables != {"data"}:
-#             return False
-
-#         # forbid sub-commands
-#         forbidden = (
-#             exp.Insert,
-#             exp.Update,
-#             exp.Delete,
-#             exp.Drop,
-#             exp.Alter,
-#             exp.Create,
-#         )
-
-#         for node in tree.walk():
-#             if isinstance(node, forbidden):
-#                 return False
-
-#         return True
-
-#     except Exception:
-#         return False
-
-
-# def query_planner_validate(sql: str) -> bool:
-#     try:
-#         conn = sqlite3.connect(SQLITE_DB)
-#         conn.execute(f"EXPLAIN QUERY PLAN {sql}")
-#         conn.close()
-#         return True
-#     except Exception:
-#         return False
-
-
-# def generate_sql(query: str):
-#     conn = sqlite3.connect(SQLITE_DB)
-#     schema = conn.execute("PRAGMA table_info(data)").fetchall()
-#     conn.close()
-
-#     columns = [col[1] for col in schema]
-
-#     prompt = f"""
-# You are a SQLite expert.
-
-# Table name: data
-# Columns: {columns}
-
-# Rules:
-# - SELECT only
-# - Use only table: data
-# - No PRAGMA
-# - No markdown
-# - No explanation
-# - Output SQL only
-
-# User question:
-# {query}
-# """
-
-#     for _ in range(5):  # retry loop
-#         raw = llm(prompt)
-#         sql = clean_sql(raw)
-
-#         if not ast_validate(sql):
-#             continue
-
-#         if not query_planner_validate(sql):
-#             continue
-
-#         return sql
-
-#     return "SELECT 'SQL generation failed' AS error"
-
-
-# def run_sql(sql: str):
-#     try:
-#         conn = sqlite3.connect(SQLITE_DB)
-#         df = pd.read_sql_query(sql, conn)
-#         conn.close()
-
-#         if df.empty:
-#             return "No rows found."
-
-#         # limit massive outputs
-#         if len(df) > 50:
-#             df = df.head(50)
-
-#         return df.to_string(index=False)
-
-#     except Exception as e:
-#         return f"SQL execution error: {e}"
-
-
-
-# # ============================================================
-# # VECTOR RETRIEVAL
-# # ============================================================
-
-# def retrieve_context(query: str):
-#     index = faiss.read_index(FAISS_INDEX)
-#     texts = np.load(TEXTS_FILE, allow_pickle=True)
-
-#     q_emb = embed_texts([query])
-#     faiss.normalize_L2(q_emb)
-
-#     scores, ids = index.search(q_emb, TOP_K)
-#     results = [texts[i] for i in ids[0]]
-
-#     return "\n".join(results)
-
-# # ============================================================
-# # LANGGRAPH STATE
-# # ============================================================
-
-# class ChatState(TypedDict):
-#     query: str
-#     intent: Optional[str]
-#     sql_result: Optional[str]
-#     context: Optional[str]
-#     answer: Optional[str]
-
-# # ============================================================
-# # NODES
-# # ============================================================
-
-# def intent_node(state: ChatState):
-#     state["intent"] = detect_intent(state["query"])
-#     return state
-
-# def route(state: ChatState):
-#     return state["intent"]
-
-# def sql_node(state: ChatState):
-#     sql = generate_sql(state["query"])
-#     result = run_sql(sql)
-#     state["sql_result"] = result
-#     return state
-
-# def vector_node(state: ChatState):
-#     ctx = retrieve_context(state["query"])
-#     state["context"] = ctx
-#     return state
-
-# def meta_node(state: ChatState):
-#     state["answer"] = llm(state["query"])
-#     return state
-
-# def merge_node(state: ChatState):
-#     prompt = f"""
-# User query:
-# {state['query']}
-
-# SQL result:
-# {state.get('sql_result')}
-
-# Context:
-# {state.get('context')}
-
-# Answer clearly.
-# """
-#     state["answer"] = llm(prompt)
-#     return state
-
-# # ============================================================
-# # BUILD GRAPH
-# # ============================================================
-
-# builder = StateGraph(ChatState)
-
-# builder.add_node("intent", intent_node)
-# builder.add_node("sql", sql_node)
-# builder.add_node("vector", vector_node)
-# builder.add_node("meta", meta_node)
-# builder.add_node("merge", merge_node)
-
-# builder.set_entry_point("intent")
-
-# builder.add_conditional_edges("intent", route, {
-#     "numeric": "sql",
-#     "semantic": "vector",
-#     "meta": "meta"
-# })
-
-# builder.add_edge("sql", "merge")
-# builder.add_edge("vector", "merge")
-# builder.add_edge("meta", END)
-# builder.add_edge("merge", END)
-
-# graph = builder.compile()
-
-# # ============================================================
-# # INITIAL BUILD
-# # ============================================================
-
-# if not os.path.exists(SQLITE_DB):
-#     excel_to_sqlite()
-
-# if not os.path.exists(FAISS_INDEX):
-#     build_vector_index()
-
-# # ============================================================
-# # CHAT LOOP
-# # ============================================================
-
-# print("\nHybrid RAG Chatbot Ready. Type 'exit' to quit.\n")
-
-# while True:
-#     q = input("You: ")
-#     if q.lower() == "exit":
-#         break
-
-#     result = graph.invoke({
-#         "query": q,
-#         "intent": None,
-#         "sql_result": None,
-#         "context": None,
-#         "answer": None
-#     })
-
-#     print("\nBot:", result["answer"], "\n")
 import pandas as pd
 import sqlite3
-import requests
+import faiss
+import numpy as np
 import json
-import re
+import os
+import requests
+from typing import TypedDict, Optional
 
-# =====================================================
+from langgraph.graph import StateGraph, END
+from openai import OpenAI
+
+# ============================================================
 # CONFIG
-# =====================================================
+# ============================================================
 
 EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
-DB_PATH = "database.db"
+SQLITE_DB = "rag.db"
+FAISS_INDEX = "faiss.index"
+TEXTS_FILE = "texts.npy"
 
+LLM_BASE_URL = "http://45.127.102.236:8000/v1"
 LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
-LLM_BASE = "http://45.127.102.236:8000/v1"
 
-TABLE_NAME = "sgd_data"
+EMBEDDING_URL = "http://127.0.0.1:5002/embeddings"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
-# =====================================================
-# STEP 1 — LOAD EXCEL → SQLITE
-# =====================================================
+TOP_K = 5
 
-def load_excel_to_sqlite():
+client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+
+# ============================================================
+# EMBEDDING CLIENT
+# ============================================================
+
+def embed_texts(texts):
+    r = requests.post(
+        EMBEDDING_URL,
+        json={"model": EMBEDDING_MODEL, "input": texts},
+        timeout=60
+    )
+    data = r.json()["data"]
+    vecs = [d["embedding"] for d in data]
+    return np.array(vecs, dtype=np.float32)
+
+# ============================================================
+# SMART EXCEL → SQLITE INGESTION (NaT SAFE)
+# ============================================================
+
+def infer_sqlite_type(dtype):
+    if pd.api.types.is_integer_dtype(dtype):
+        return "INTEGER"
+    if pd.api.types.is_float_dtype(dtype):
+        return "REAL"
+    if pd.api.types.is_bool_dtype(dtype):
+        return "INTEGER"
+    if pd.api.types.is_datetime64_any_dtype(dtype):
+        return "TEXT"
+    return "TEXT"
+
+
+def sanitize_value(x):
+    if pd.isna(x):
+        return None
+
+    if isinstance(x, pd.Timestamp):
+        return x.isoformat()
+
+    if isinstance(x, bool):
+        return int(x)
+
+    return x
+
+
+def excel_to_sqlite():
+    print("Building SQLite schema from Excel...")
+
     df = pd.read_excel(EXCEL_PATH)
-    df.columns = [c.replace(" ", "_").replace("-", "_") for c in df.columns]
 
-    conn = sqlite3.connect(DB_PATH)
-    df.to_sql(TABLE_NAME, conn, if_exists="replace", index=False)
-    conn.close()
+    # clean column names
+    df.columns = [
+        col.strip()
+        .replace(" ", "_")
+        .replace("-", "_")
+        .replace("/", "_")
+        for col in df.columns
+    ]
 
-    print("Excel loaded into SQLite successfully.")
+    # sanitize dataframe
+    df = df.applymap(sanitize_value)
 
-# =====================================================
-# STEP 2 — LLM CALL
-# =====================================================
-
-def call_llm(prompt):
-    payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are an expert SQL generator."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0
+    # infer schema
+    schema = {
+        col: infer_sqlite_type(df[col].dtype)
+        for col in df.columns
     }
 
-    response = requests.post(
-        f"{LLM_BASE}/chat/completions",
-        headers={"Content-Type": "application/json"},
-        data=json.dumps(payload),
-        timeout=120
+    conn = sqlite3.connect(SQLITE_DB)
+    cur = conn.cursor()
+
+    cur.execute("DROP TABLE IF EXISTS data")
+
+    columns_sql = ", ".join(
+        [f'"{col}" {dtype}' for col, dtype in schema.items()]
     )
 
-    return response.json()["choices"][0]["message"]["content"]
+    create_sql = f"CREATE TABLE data ({columns_sql})"
+    cur.execute(create_sql)
 
-# =====================================================
-# STEP 3 — NLP → SQL
-# =====================================================
+    placeholders = ", ".join(["?"] * len(df.columns))
+    insert_sql = f'INSERT INTO data VALUES ({placeholders})'
 
-def generate_sql(user_query):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    cur.executemany(insert_sql, df.values.tolist())
 
-    cursor.execute(f"PRAGMA table_info({TABLE_NAME});")
-    columns = [col[1] for col in cursor.fetchall()]
+    conn.commit()
     conn.close()
 
-    schema = ", ".join(columns)
+    print("SQLite ready with sanitized data.")
 
+
+def row_to_text(row):
+    return " | ".join([f"{col}: {row[col]}" for col in row.index])
+
+def build_vector_index():
+    df = pd.read_excel(EXCEL_PATH)
+    texts = df.apply(row_to_text, axis=1).tolist()
+
+    embeddings = embed_texts(texts)
+    faiss.normalize_L2(embeddings)
+
+    dim = embeddings.shape[1]
+    index = faiss.IndexFlatIP(dim)
+    index.add(embeddings)
+
+    faiss.write_index(index, FAISS_INDEX)
+    np.save(TEXTS_FILE, np.array(texts, dtype=object))
+
+# ============================================================
+# LLM CALL
+# ============================================================
+
+def llm(prompt: str) -> str:
+    resp = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
+    return resp.choices[0].message.content.strip()
+
+# ============================================================
+# INTENT DETECTION
+# ============================================================
+
+
+def detect_intent(query: str):
     prompt = f"""
-Convert the user question into a valid SQL query.
+Classify this query into ONE word only:
 
-Table name: {TABLE_NAME}
-Columns: {schema}
+numeric → math, aggregation, totals, counts
+semantic → meaning or explanation from data
+meta → general knowledge
 
-Rules:
-- Only output SQL
-- No explanation
-- Use correct column names
-- SQLite syntax only
+Answer with exactly one word:
+numeric OR semantic OR meta
 
-User question:
-{user_query}
+Query:
+{query}
 """
 
-    sql = call_llm(prompt)
+    out = llm(prompt).lower().strip()
 
-    # clean markdown formatting if any
-    sql = re.sub(r"```sql|```", "", sql).strip()
+    # hard guard against model rambling
+    if "numeric" in out:
+        return "numeric"
+    if "meta" in out:
+        return "meta"
+    return "semantic"
 
-    return sql
 
-# =====================================================
-# STEP 4 — EXECUTE SQL
-# =====================================================
+# ============================================================
+# SQL ENGINE (AST + QUERY PLANNER SAFE)
+# ============================================================
 
-def execute_sql(sql):
-    conn = sqlite3.connect(DB_PATH)
+import sqlglot
+from sqlglot import exp
+
+
+def clean_sql(text: str) -> str:
+    text = text.strip()
+
+    if "```" in text:
+        parts = text.split("```")
+        if len(parts) >= 2:
+            text = parts[1]
+
+    return text.strip()
+
+
+def ast_validate(sql: str) -> bool:
     try:
-        df = pd.read_sql_query(sql, conn)
-    except Exception as e:
+        tree = sqlglot.parse_one(sql)
+
+        # must be SELECT
+        if not isinstance(tree, exp.Select):
+            return False
+
+        # enforce table whitelist
+        tables = {t.name.lower() for t in tree.find_all(exp.Table)}
+        if tables != {"data"}:
+            return False
+
+        # forbid sub-commands
+        forbidden = (
+            exp.Insert,
+            exp.Update,
+            exp.Delete,
+            exp.Drop,
+            exp.Alter,
+            exp.Create,
+        )
+
+        for node in tree.walk():
+            if isinstance(node, forbidden):
+                return False
+
+        return True
+
+    except Exception:
+        return False
+
+
+def query_planner_validate(sql: str) -> bool:
+    try:
+        conn = sqlite3.connect(SQLITE_DB)
+        conn.execute(f"EXPLAIN QUERY PLAN {sql}")
         conn.close()
-        return None, str(e)
+        return True
+    except Exception:
+        return False
 
+
+def generate_sql(query: str):
+    conn = sqlite3.connect(SQLITE_DB)
+    schema = conn.execute("PRAGMA table_info(data)").fetchall()
     conn.close()
-    return df, None
 
-# =====================================================
-# STEP 5 — FINAL RESPONSE GENERATION
-# =====================================================
-
-def generate_answer(user_query, df):
-    if df.empty:
-        return "No results found."
-
-    data_preview = df.head(20).to_string(index=False)
+    columns = [col[1] for col in schema]
 
     prompt = f"""
+You are a chat assistant, be helpful and concise.
+
+Table name: data
+Columns: {columns}
+
+Rules:
+- SELECT only
+- Use only table: data
+- No PRAGMA
+- No markdown
+- No explanation
+- Output SQL only
+
 User question:
-{user_query}
+{query}
+"""
 
-SQL result:
-{data_preview}
+    for _ in range(5):  # retry loop
+        raw = llm(prompt)
+        sql = clean_sql(raw)
 
-Provide a concise answer based on the SQL result."""
-
-    return call_llm(prompt)
-
-# =====================================================
-# CHAT LOOP
-# =====================================================
-
-def chat():
-    print("RAG SQL Chatbot ready. Type 'exit' to quit.\n")
-
-    while True:
-        user_query = input("You: ")
-
-        if user_query.lower() == "exit":
-            break
-
-        sql = generate_sql(user_query)
-        print("\nGenerated SQL:")
-        print(sql)
-
-        df, error = execute_sql(sql)
-
-        if error:
-            print("\nSQL Error:", error)
+        if not ast_validate(sql):
             continue
 
-        answer = generate_answer(user_query, df)
-        print("\nBot:", answer)
-        print("-" * 60)
+        if not query_planner_validate(sql):
+            continue
 
-# =====================================================
-# MAIN
-# =====================================================
+        return sql
 
-if __name__ == "__main__":
-    load_excel_to_sqlite()
-    chat()
+    return "SELECT 'SQL generation failed' AS error"
+
+
+def run_sql(sql: str):
+    try:
+        conn = sqlite3.connect(SQLITE_DB)
+        df = pd.read_sql_query(sql, conn)
+        conn.close()
+
+        if df.empty:
+            return "No rows found."
+
+        # limit massive outputs
+        if len(df) > 50:
+            df = df.head(50)
+
+        return df.to_string(index=False)
+
+    except Exception as e:
+        return f"SQL execution error: {e}"
+
+
+
+# ============================================================
+# VECTOR RETRIEVAL
+# ============================================================
+
+def retrieve_context(query: str):
+    index = faiss.read_index(FAISS_INDEX)
+    texts = np.load(TEXTS_FILE, allow_pickle=True)
+
+    q_emb = embed_texts([query])
+    faiss.normalize_L2(q_emb)
+
+    scores, ids = index.search(q_emb, TOP_K)
+    results = [texts[i] for i in ids[0]]
+
+    return "\n".join(results)
+
+# ============================================================
+# LANGGRAPH STATE
+# ============================================================
+
+class ChatState(TypedDict):
+    query: str
+    intent: Optional[str]
+    sql_result: Optional[str]
+    context: Optional[str]
+    answer: Optional[str]
+
+# ============================================================
+# NODES
+# ============================================================
+
+def intent_node(state: ChatState):
+    state["intent"] = detect_intent(state["query"])
+    return state
+
+def route(state: ChatState):
+    return state["intent"]
+
+def sql_node(state: ChatState):
+    sql = generate_sql(state["query"])
+    result = run_sql(sql)
+    state["sql_result"] = result
+    return state
+
+def vector_node(state: ChatState):
+    ctx = retrieve_context(state["query"])
+    state["context"] = ctx
+    return state
+
+def meta_node(state: ChatState):
+    state["answer"] = llm(state["query"])
+    return state
+
+def merge_node(state: ChatState):
+    prompt = f"""
+User query:
+{state['query']}
+
+SQL result:
+{state.get('sql_result')}
+
+Context:
+{state.get('context')}
+
+Answer clearly.
+"""
+    state["answer"] = llm(prompt)
+    return state
+
+# ============================================================
+# BUILD GRAPH
+# ============================================================
+
+builder = StateGraph(ChatState)
+
+builder.add_node("intent", intent_node)
+builder.add_node("sql", sql_node)
+builder.add_node("vector", vector_node)
+builder.add_node("meta", meta_node)
+builder.add_node("merge", merge_node)
+
+builder.set_entry_point("intent")
+
+builder.add_conditional_edges("intent", route, {
+    "numeric": "sql",
+    "semantic": "vector",
+    "meta": "meta"
+})
+
+builder.add_edge("sql", "merge")
+builder.add_edge("vector", "merge")
+builder.add_edge("meta", END)
+builder.add_edge("merge", END)
+
+graph = builder.compile()
+
+# ============================================================
+# INITIAL BUILD
+# ============================================================
+
+if not os.path.exists(SQLITE_DB):
+    excel_to_sqlite()
+
+if not os.path.exists(FAISS_INDEX):
+    build_vector_index()
+
+# ============================================================
+# CHAT LOOP
+# ============================================================
+
+print("\nHybrid RAG Chatbot Ready. Type 'exit' to quit.\n")
+
+while True:
+    q = input("You: ")
+    if q.lower() == "exit":
+        break
+
+    result = graph.invoke({
+        "query": q,
+        "intent": None,
+        "sql_result": None,
+        "context": None,
+        "answer": None
+    })
+
+    print("\nBot:", result["answer"], "\n")
