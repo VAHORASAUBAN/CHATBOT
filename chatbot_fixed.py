@@ -1,397 +1,507 @@
-"""
-FIXED CHATBOT - Data Retrieval Issues Resolved
-===============================================
+# import pandas as pd
+# import sqlite3
+# import os
+# import traceback
+# from typing import TypedDict, Optional
 
-Key fixes:
-1. Added comprehensive error logging to see where retrieval fails
-2. Fixed SQL validation (was too strict, rejecting valid queries)
-3. Added fallback vector retrieval to SQL node
-4. Better error messages for debugging
-5. Explicit schema printing at startup
-"""
+# from openai import OpenAI
+# import sqlglot
+# from sqlglot import exp
+# from langgraph.graph import StateGraph, END
 
+# # ============================================================
+# # CONFIG
+# # ============================================================
+
+# EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"   # update if needed
+# SQLITE_DB = "procurement.db"
+
+# LLM_BASE_URL = "http://45.127.102.236:8000/v1"
+# LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
+
+# DEBUG = True
+
+# client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+
+# def debug(msg):
+#     if DEBUG:
+#         print("[DEBUG]", msg)
+
+# # ============================================================
+# # LOAD EXCEL → SQLITE
+# # ============================================================
+
+# def normalize(x):
+#     if pd.isna(x):
+#         return None
+#     if isinstance(x, str):
+#         return x.strip().lower()
+#     if isinstance(x, pd.Timestamp):
+#         return x.isoformat()
+#     return x
+
+# def excel_to_sqlite():
+#     print("Building SQLite database from Excel...")
+
+#     df = pd.read_excel(EXCEL_PATH)
+
+#     df.columns = [
+#         col.strip().replace(" ", "_").replace("-", "_").replace("/", "_")
+#         for col in df.columns
+#     ]
+
+#     df = df.applymap(normalize)
+
+#     conn = sqlite3.connect(SQLITE_DB)
+#     df.to_sql("data", conn, if_exists="replace", index=False)
+#     conn.close()
+
+#     print("✓ Database ready")
+
+# # ============================================================
+# # SCHEMA
+# # ============================================================
+
+# def get_schema():
+#     conn = sqlite3.connect(SQLITE_DB)
+#     rows = conn.execute("PRAGMA table_info(data)").fetchall()
+#     conn.close()
+#     return [(r[1], r[2]) for r in rows]
+
+# # ============================================================
+# # DOMAIN PROMPT
+# # ============================================================
+# import json
+
+# with open("schema_contract.json") as f:
+#     CONTRACT = json.load(f)
+
+# def build_domain_prompt(user_query, error=""):
+
+#     return f"""
+# You are a SQL planner.
+
+# Schema contract:
+# {json.dumps(CONTRACT, indent=2)}
+
+# Rules:
+# - Use ONLY columns defined in schema
+# - Follow business rules exactly
+# - Never invent columns
+# - Output SQL only
+
+# User question:
+# {user_query}
+
+# Previous error:
+# {error}
+
+# SQL:
+# """
+
+
+
+# # ============================================================
+# # LLM CALL
+# # ============================================================
+
+# def llm(prompt: str) -> str:
+#     resp = client.chat.completions.create(
+#         model=LLM_MODEL,
+#         messages=[{"role": "user", "content": prompt}],
+#         temperature=0,
+#         max_tokens=1024
+#     )
+#     return resp.choices[0].message.content.strip()
+
+# # ============================================================
+# # SQL VALIDATION
+# # ============================================================
+
+# def validate_sql(sql: str) -> bool:
+#     try:
+#         tree = sqlglot.parse_one(sql, read="sqlite")
+
+#         if not isinstance(tree, exp.Select):
+#             return False
+
+#         tables = {t.name.lower() for t in tree.find_all(exp.Table)}
+#         if tables != {"data"}:
+#             return False
+
+#         forbidden = (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Alter)
+#         for node in tree.walk():
+#             if isinstance(node, forbidden):
+#                 return False
+
+#         conn = sqlite3.connect(SQLITE_DB)
+#         conn.execute(f"EXPLAIN QUERY PLAN {sql}")
+#         conn.close()
+
+#         return True
+
+#     except:
+#         return False
+
+# # ============================================================
+# # EXECUTE SQL
+# # ============================================================
+
+# def run_sql(sql: str):
+#     conn = sqlite3.connect(SQLITE_DB)
+#     df = pd.read_sql_query(sql, conn)
+#     conn.close()
+
+#     if df.empty:
+#         return "No matching records."
+
+#     return df.to_string(index=False)
+
+# # ============================================================
+# # SQL AGENT LOOP
+# # ============================================================
+
+# def sql_agent(query: str):
+#     error = ""
+
+#     for attempt in range(3):
+#         prompt = build_domain_prompt(query, error)
+#         sql = llm(prompt)
+
+#         debug(f"Attempt {attempt+1}: {sql}")
+
+#         if validate_sql(sql):
+#             try:
+#                 return run_sql(sql)
+#             except Exception as e:
+#                 error = str(e)
+#         else:
+#             error = "Invalid SQL"
+
+#     return "Failed to generate valid SQL."
+
+# # ============================================================
+# # LANGGRAPH STATE
+# # ============================================================
+
+# class ChatState(TypedDict):
+#     query: str
+#     answer: Optional[str]
+
+# def sql_node(state: ChatState):
+#     state["answer"] = sql_agent(state["query"])
+#     return state
+
+# builder = StateGraph(ChatState)
+# builder.add_node("sql", sql_node)
+# builder.set_entry_point("sql")
+# builder.add_edge("sql", END)
+
+# graph = builder.compile()
+
+# # ============================================================
+# # INIT
+# # ============================================================
+
+# print("\nInitializing assistant...")
+
+# if not os.path.exists(SQLITE_DB):
+#     excel_to_sqlite()
+
+# schema = get_schema()
+# print(f"Columns loaded: {len(schema)}")
+
+# print("\nREADY — type exit to quit\n")
+
+# # ============================================================
+# # CHAT LOOP
+# # ============================================================
+
+# while True:
+#     q = input("You: ").strip()
+#     if q.lower() == "exit":
+#         break
+
+#     try:
+#         result = graph.invoke({"query": q, "answer": None})
+#         print("\nBot:\n", result["answer"], "\n")
+
+#     except Exception as e:
+#         print("Error:", e)
+#         traceback.print_exc()
 import pandas as pd
 import sqlite3
-import faiss
-import numpy as np
-import json
 import os
-import requests
-from typing import TypedDict, Optional
+import json
 import traceback
+from typing import TypedDict, Optional
+from datetime import datetime
 
-from langgraph.graph import StateGraph, END
 from openai import OpenAI
 import sqlglot
 from sqlglot import exp
+from langgraph.graph import StateGraph, END
 
 # ============================================================
 # CONFIG
 # ============================================================
 
 EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
-SQLITE_DB = "rag.db"
-FAISS_INDEX = "faiss.index"
-TEXTS_FILE = "texts.npy"
+SQLITE_DB = "procurement.db"
+KNOWLEDGE_JSON = "knowledge_base.json"
 
 LLM_BASE_URL = "http://45.127.102.236:8000/v1"
 LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
-EMBEDDING_URL = "http://127.0.0.1:5002/embeddings"
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-
-TOP_K = 5
-DEBUG = True  # Enable detailed logging
+DEBUG = True
 
 client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
 
-def debug_log(msg):
+def debug(msg):
     if DEBUG:
-        print(f"[DEBUG] {msg}")
+        print("[DEBUG]", msg)
 
 # ============================================================
-# EMBEDDING CLIENT
+# SAFE JSON CONVERSION
 # ============================================================
 
-def embed_texts(texts):
-    """Embed texts using remote service"""
-    try:
-        r = requests.post(
-            EMBEDDING_URL,
-            json={"model": EMBEDDING_MODEL, "input": texts},
-            timeout=60
-        )
-        r.raise_for_status()
-        data = r.json()["data"]
-        vecs = [d["embedding"] for d in data]
-        return np.array(vecs, dtype=np.float32)
-    except Exception as e:
-        debug_log(f"Embedding failed: {e}")
-        raise
-
-# ============================================================
-# SQLITE UTILITIES
-# ============================================================
-
-def get_schema():
-    """Get database schema"""
-    try:
-        conn = sqlite3.connect(SQLITE_DB)
-        schema = conn.execute("PRAGMA table_info(data)").fetchall()
-        conn.close()
-        return [(col[1], col[2]) for col in schema]  # (name, type)
-    except Exception as e:
-        debug_log(f"Schema fetch failed: {e}")
-        return []
-
-def infer_sqlite_type(dtype):
-    if pd.api.types.is_integer_dtype(dtype):
-        return "INTEGER"
-    if pd.api.types.is_float_dtype(dtype):
-        return "REAL"
-    if pd.api.types.is_bool_dtype(dtype):
-        return "INTEGER"
-    if pd.api.types.is_datetime64_any_dtype(dtype):
-        return "TEXT"
-    return "TEXT"
-
-def sanitize_value(x):
+def to_json_safe(x):
     if pd.isna(x):
         return None
-    if isinstance(x, pd.Timestamp):
+    if isinstance(x, (pd.Timestamp, datetime)):
         return x.isoformat()
-    if isinstance(x, bool):
-        return int(x)
+    if isinstance(x, (int, float, str, bool)):
+        return x
+    return str(x)
+
+# ============================================================
+# NORMALIZATION
+# ============================================================
+
+def normalize(x):
+    if pd.isna(x):
+        return None
+    if isinstance(x, str):
+        return x.strip().lower()
+    if isinstance(x, (pd.Timestamp, datetime)):
+        return x.isoformat()
     return x
 
+# ============================================================
+# EXCEL → SQLITE
+# ============================================================
+import re
+
+def clean_column(col: str) -> str:
+    col = col.strip().lower()
+
+    # replace special characters with underscore
+    col = re.sub(r'[^a-z0-9]+', '_', col)
+
+    # collapse multiple underscores
+    col = re.sub(r'_+', '_', col)
+
+    return col.strip('_')
+
 def excel_to_sqlite():
-    """Load Excel into SQLite"""
-    print("Building SQLite schema from Excel...")
+    print("Building SQLite database...")
+
     df = pd.read_excel(EXCEL_PATH)
 
-    # clean column names
-    df.columns = [
-        col.strip()
-        .replace(" ", "_")
-        .replace("-", "_")
-        .replace("/", "_")
-        for col in df.columns
-    ]
+    df.columns = [clean_column(c) for c in df.columns]
 
-    # sanitize dataframe
-    df = df.applymap(sanitize_value)
-
-    # infer schema
-    schema = {
-        col: infer_sqlite_type(df[col].dtype)
-        for col in df.columns
-    }
+    # apply normalize column-wise (applymap deprecated)
+    df = df.apply(lambda col: col.map(normalize))
 
     conn = sqlite3.connect(SQLITE_DB)
-    cur = conn.cursor()
-
-    cur.execute("DROP TABLE IF EXISTS data")
-
-    columns_sql = ", ".join(
-        [f'"{col}" {dtype}' for col, dtype in schema.items()]
-    )
-
-    create_sql = f"CREATE TABLE data ({columns_sql})"
-    cur.execute(create_sql)
-
-    placeholders = ", ".join(["?"] * len(df.columns))
-    insert_sql = f'INSERT INTO data VALUES ({placeholders})'
-
-    cur.executemany(insert_sql, df.values.tolist())
-
-    conn.commit()
+    df.to_sql("data", conn, if_exists="replace", index=False)
     conn.close()
 
-    print(f"✓ SQLite ready. Columns: {list(schema.keys())[:5]}...")
+    print("✓ SQLite ready")
+    return df
 
-def row_to_text(row):
-    return " | ".join([f"{col}: {row[col]}" for col in row.index])
+# ============================================================
+# AUTO KNOWLEDGE JSON BUILDER
+# ============================================================
 
-def build_vector_index():
-    """Build FAISS index"""
-    print("Building FAISS index...")
-    df = pd.read_excel(EXCEL_PATH)
-    texts = df.apply(row_to_text, axis=1).tolist()
+def build_knowledge_json(df: pd.DataFrame):
+    print("Generating knowledge base JSON...")
 
-    embeddings = embed_texts(texts)
-    faiss.normalize_L2(embeddings)
+    kb = {
+        "table": "data",
+        "description": "Procurement dataset containing purchase requests, purchase orders, suppliers, and authorization status.",
+        "columns": {}
+    }
 
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dim)
-    index.add(embeddings)
+    for col in df.columns:
 
-    faiss.write_index(index, FAISS_INDEX)
-    np.save(TEXTS_FILE, np.array(texts, dtype=object))
-    
-    print(f"✓ FAISS index ready. Vectors: {len(texts)}, Dimension: {dim}")
+        unique_vals = df[col].dropna().unique().tolist()
+        sample_vals = [to_json_safe(v) for v in unique_vals[:10]]
+
+        readable_title = col.replace("_", " ").title()
+
+        kb["columns"][col] = {
+            "name": col,
+            "title": readable_title,
+            "type": str(df[col].dtype),
+
+            "category": "unknown",  # optional: identifier/date/status/amount/text
+
+            "description": f"""
+This column represents '{readable_title}' in the procurement workflow.
+It stores structured information used for filtering, grouping,
+and answering business questions about transactions.
+""".strip(),
+
+            "user_intent_examples": [
+                f"show records by {readable_title}",
+                f"filter using {readable_title}",
+                f"group by {readable_title}"
+            ],
+
+            "synonyms": [
+                readable_title.lower(),
+                col.lower(),
+                col.replace("_", " ")
+            ],
+
+            "keywords": readable_title.lower().split(),
+
+            "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+
+            "sample_values": sample_vals
+        }
+
+    with open(KNOWLEDGE_JSON, "w", encoding="utf-8") as f:
+        json.dump(kb, f, indent=2, ensure_ascii=False)
+
+    print("✓ Knowledge JSON created")
+    return kb
+
+
+# ============================================================
+# LOAD KNOWLEDGE
+# ============================================================
+
+def load_knowledge():
+    with open(KNOWLEDGE_JSON, encoding="utf-8") as f:
+        return json.load(f)
+
+# ============================================================
+# PROMPT CONTRACT
+# ============================================================
+
+def build_prompt(user_query, kb, error=""):
+
+    return f"""
+You are a Database helper.
+
+Knowledge Base:
+{json.dumps(kb, indent=2)}
+
+Rules:
+- Match values to sample values
+- Never invent fields
+- Only SELECT queries
+- Output SQL only
+
+User query:
+{user_query}
+
+Previous error:
+{error}
+
+SQL:
+"""
 
 # ============================================================
 # LLM CALL
 # ============================================================
 
 def llm(prompt: str) -> str:
-    """Call LLM"""
-    try:
-        resp = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=1024
-        )
-        return resp.choices[0].message.content.strip()
-    except Exception as e:
-        debug_log(f"LLM call failed: {e}")
-        return ""
+    resp = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        max_tokens=1024
+    )
+    return resp.choices[0].message.content.strip()
 
 # ============================================================
-# INTENT DETECTION
+# SQL VALIDATION
 # ============================================================
+import re
 
-def detect_intent(query: str):
-    """Detect query intent"""
-    prompt = f"""
-Classify this query into ONE word only:
+def normalize_sql_quotes(sql: str) -> str:
+    # convert "text" → 'text' only when it's a value, not column
+    return re.sub(r'"([^"]*)"', r"'\1'", sql)
 
-numeric → math, aggregation, totals, counts, sums
-semantic → meaning, explanation, analysis from data
-meta → general knowledge, greetings
-
-Answer with exactly one word:
-numeric OR semantic OR meta
-
-Query: {query}
-"""
-    
-    out = llm(prompt).lower().strip()
-    debug_log(f"Intent detection raw: '{out}'")
-    
-    if "numeric" in out:
-        return "numeric"
-    if "meta" in out:
-        return "meta"
-    return "semantic"
-
-# ============================================================
-# SQL ENGINE (IMPROVED VALIDATION)
-# ============================================================
-
-def clean_sql(text: str) -> str:
-    """Clean SQL response"""
-    text = text.strip()
-    # Remove markdown code blocks
-    if "```sql" in text:
-        parts = text.split("```sql")
-        if len(parts) > 1:
-            text = parts[1].split("```")[0]
-    elif "```" in text:
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-    
-    # Remove any leading/trailing whitespace and newlines
-    text = "\n".join(line.strip() for line in text.split("\n") if line.strip())
-    return text.strip()
-
-def ast_validate(sql: str) -> bool:
-    """Validate SQL using AST"""
+def validate_sql(sql: str, kb) -> bool:
     try:
         tree = sqlglot.parse_one(sql, read="sqlite")
-        
-        # must be SELECT
-        if not isinstance(tree, exp.Select):
-            debug_log(f"Not a SELECT: {type(tree)}")
-            return False
-        
-        # enforce table whitelist
-        tables = {t.name.lower() for t in tree.find_all(exp.Table)}
-        debug_log(f"Tables in query: {tables}")
-        if tables and tables != {"data"}:
-            debug_log(f"Invalid tables: {tables}")
-            return False
-        
-        # forbid dangerous commands
-        forbidden = (
-            exp.Insert,
-            exp.Update,
-            exp.Delete,
-            exp.Drop,
-            exp.Alter,
-            exp.Create,
-        )
-        
-        for node in tree.walk():
-            if isinstance(node, forbidden):
-                debug_log(f"Forbidden node: {type(node)}")
-                return False
-        
-        return True
-        
-    except Exception as e:
-        debug_log(f"AST validation error: {e}")
-        return False
 
-def query_planner_validate(sql: str) -> bool:
-    """Validate SQL can execute"""
-    try:
+        if not isinstance(tree, exp.Select):
+            return False
+
+        # canonical lowercase schema
+        valid_cols = {c.lower() for c in kb["columns"].keys()}
+
+        for col in tree.find_all(exp.Column):
+            col_name = col.name.lower()
+
+            if col_name not in valid_cols:
+                debug(f"Invalid column: {col.name}")
+                return False
+
         conn = sqlite3.connect(SQLITE_DB)
         conn.execute(f"EXPLAIN QUERY PLAN {sql}")
         conn.close()
+
         return True
+
     except Exception as e:
-        debug_log(f"Query plan validation failed: {e}")
+        debug(f"Validation error: {e}")
         return False
 
-def generate_sql(query: str):
-    """Generate SQL from query"""
-    schema = get_schema()
-    columns = [col[0] for col in schema]
-    
-    prompt = f"""
-You are a SQL expert. Generate ONLY valid SQLite queries.
 
-Table: data
-Columns: {columns}
-
-Rules:
-- Return ONLY the SQL query
-- No markdown code blocks
-- SELECT queries only
-- Use column names exactly as listed
-- No explanations
-- dont use COUNT(DISTINCT *) or PRAGMA statements
-
-Question: {query}
-
-SQL:
-"""
-    
-    debug_log(f"SQL generation for: {query}")
-    
-    for attempt in range(3):  # Reduce retry attempts
-        try:
-            raw = llm(prompt)
-            sql = clean_sql(raw)
-            debug_log(f"Attempt {attempt+1} SQL: {sql[:100]}...")
-            
-            if not sql or not sql.upper().startswith("SELECT"):
-                continue
-            
-            if not ast_validate(sql):
-                continue
-            
-            if not query_planner_validate(sql):
-                continue
-            
-            debug_log(f"✓ Valid SQL generated")
-            return sql
-            
-        except Exception as e:
-            debug_log(f"SQL generation attempt {attempt+1} failed: {e}")
-            continue
-    
-    debug_log("✗ SQL generation exhausted retries")
-    return None
+# ============================================================
+# EXECUTE SQL
+# ============================================================
 
 def run_sql(sql: str):
-    """Execute SQL query"""
-    if not sql:
-        return "No SQL query"
-    
-    try:
-        debug_log(f"Executing SQL: {sql[:100]}...")
-        conn = sqlite3.connect(SQLITE_DB)
-        df = pd.read_sql_query(sql, conn)
-        conn.close()
-        
-        if df.empty:
-            debug_log("SQL returned no rows")
-            return "No matching records found"
-        
-        # Limit output
-        if len(df) > 50:
-            debug_log(f"Limiting results from {len(df)} to 50")
-            df = df.head(50)
-        
-        result = df.to_string(index=False)
-        debug_log(f"✓ SQL returned {len(df)} rows")
-        return result
-        
-    except Exception as e:
-        debug_log(f"SQL execution error: {e}")
-        traceback.print_exc()
-        return f"SQL execution error: {e}"
+    conn = sqlite3.connect(SQLITE_DB)
+    df = pd.read_sql_query(sql, conn)
+    conn.close()
+
+    if df.empty:
+        return "No matching records."
+
+    return df.to_string(index=False)
 
 # ============================================================
-# VECTOR RETRIEVAL (RAG)
+# SQL AGENT LOOP
 # ============================================================
 
-def retrieve_context(query: str):
-    """Retrieve context using vector search"""
-    try:
-        debug_log(f"Vector retrieval for: {query}")
-        
-        index = faiss.read_index(FAISS_INDEX)
-        texts = np.load(TEXTS_FILE, allow_pickle=True)
-        
-        q_emb = embed_texts([query])
-        faiss.normalize_L2(q_emb)
-        
-        scores, ids = index.search(q_emb, TOP_K)
-        results = [texts[i] for i in ids[0]]
-        
-        context = "\n---\n".join(results)
-        debug_log(f"✓ Retrieved {len(results)} vectors")
-        return context
-        
-    except Exception as e:
-        debug_log(f"Vector retrieval failed: {e}")
-        traceback.print_exc()
-        return ""
+def sql_agent(query: str, kb):
+    error = ""
+
+    for attempt in range(3):
+        prompt = build_prompt(query, kb, error)
+        sql = llm(prompt)
+        sql = normalize_sql_quotes(sql)
+
+        debug(f"Attempt {attempt+1}: {sql}")
+
+        if validate_sql(sql, kb):
+            try:
+                return run_sql(sql)
+            except Exception as e:
+                error = str(e)
+        else:
+            error = "Invalid SQL"
+
+    return "Failed to generate valid SQL."
+
 
 # ============================================================
 # LANGGRAPH STATE
@@ -399,155 +509,45 @@ def retrieve_context(query: str):
 
 class ChatState(TypedDict):
     query: str
-    intent: Optional[str]
-    sql_result: Optional[str]
-    context: Optional[str]
     answer: Optional[str]
-    error: Optional[str]
-
-# ============================================================
-# NODES
-# ============================================================
-
-def intent_node(state: ChatState):
-    """Classify intent"""
-    state["intent"] = detect_intent(state["query"])
-    debug_log(f"Intent: {state['intent']}")
-    return state
-
-def route(state: ChatState):
-    """Route based on intent"""
-    return state["intent"]
 
 def sql_node(state: ChatState):
-    """Handle numeric queries with SQL"""
-    debug_log(f"SQL node: processing numeric query")
-    sql = generate_sql(state["query"])
-    
-    if sql:
-        result = run_sql(sql)
-        state["sql_result"] = result
-        state["answer"] = result
-    else:
-        state["error"] = "Could not generate SQL"
-        state["answer"] = "I couldn't generate a valid SQL query for that question."
-    
+    kb = load_knowledge()
+    state["answer"] = sql_agent(state["query"], kb)
     return state
-
-def vector_node(state: ChatState):
-    """Handle semantic queries with RAG"""
-    debug_log(f"Vector node: processing semantic query")
-    ctx = retrieve_context(state["query"])
-    state["context"] = ctx
-    
-    if not ctx:
-        state["error"] = "No context retrieved"
-        state["answer"] = "Could not find relevant data."
-        return state
-    
-    # Use LLM to synthesize answer from context
-    prompt = f"""
-Using the provided context, answer the user's question clearly and concisely.
-
-Context:
-{ctx}
-
-Question: {state['query']}
-
-Answer:
-"""
-    
-    answer = llm(prompt)
-    state["answer"] = answer if answer else "Could not generate answer"
-    debug_log(f"✓ Vector node answer generated")
-    
-    return state
-
-def meta_node(state: ChatState):
-    """Handle general questions"""
-    debug_log(f"Meta node: processing general query")
-    answer = llm(state["query"])
-    state["answer"] = answer if answer else "Could not process query"
-    return state
-
-# ============================================================
-# BUILD GRAPH
-# ============================================================
 
 builder = StateGraph(ChatState)
-
-builder.add_node("intent", intent_node)
 builder.add_node("sql", sql_node)
-builder.add_node("vector", vector_node)
-builder.add_node("meta", meta_node)
-
-builder.set_entry_point("intent")
-
-builder.add_conditional_edges("intent", route, {
-    "numeric": "sql",
-    "semantic": "vector",
-    "meta": "meta"
-})
-
+builder.set_entry_point("sql")
 builder.add_edge("sql", END)
-builder.add_edge("vector", END)
-builder.add_edge("meta", END)
 
 graph = builder.compile()
 
 # ============================================================
-# INITIALIZATION
+# INIT
 # ============================================================
 
-print("\n" + "="*60)
-print("CHATBOT INITIALIZATION")
-print("="*60)
+print("\nInitializing assistant...")
 
-if not os.path.exists(SQLITE_DB):
-    excel_to_sqlite()
-else:
-    schema = get_schema()
-    print(f"✓ SQLite ready ({len(schema)} columns)")
+df = excel_to_sqlite()
+kb = build_knowledge_json(df)
 
-if not os.path.exists(FAISS_INDEX):
-    build_vector_index()
-else:
-    index = faiss.read_index(FAISS_INDEX)
-    print(f"✓ FAISS ready ({index.ntotal} vectors)")
-
-print("\n" + "="*60)
-print("READY - Type 'exit' to quit")
-print("="*60 + "\n")
+print(f"Columns loaded: {len(df.columns)}")
+print("\nREADY — type exit to quit\n")
 
 # ============================================================
 # CHAT LOOP
 # ============================================================
 
 while True:
-    query = input("You: ").strip()
-    if not query:
-        continue
-    if query.lower() == "exit":
-        print("Goodbye!")
+    q = input("You: ").strip()
+    if q.lower() == "exit":
         break
-    
-    print("\n[Processing...]")
-    
+
     try:
-        result = graph.invoke({
-            "query": query,
-            "intent": None,
-            "sql_result": None,
-            "context": None,
-            "answer": None,
-            "error": None
-        })
-        
-        print(f"\nBot: {result['answer']}\n")
-        
-        if DEBUG and result.get("error"):
-            print(f"[Error: {result['error']}]\n")
-            
+        result = graph.invoke({"query": q, "answer": None})
+        print("\nBot:\n", result["answer"], "\n")
+
     except Exception as e:
-        print(f"\n❌ Error: {e}\n")
+        print("Error:", e)
         traceback.print_exc()

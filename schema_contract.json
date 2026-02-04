@@ -1,0 +1,174 @@
+{
+  "table": "data",
+
+  "domain": "procurement workflow tracking system",
+
+  "column_groups": {
+
+    "purchase_request": [
+      "PR_DocNo",
+      "PR_Date",
+      "PR_authorised_Date",
+      "PR_AuthStatus",
+      "ProjectCode",
+      "WorkMaster",
+      "ItemCode",
+      "Description",
+      "PR_Quantity"
+    ],
+
+    "purchase_order": [
+      "PO_DocNo",
+      "PO_Date",
+      "Supplier",
+      "PO_Value"
+    ],
+
+    "finance": [
+      "Invoice_status",
+      "Payment_Value_-_Finance_Team",
+      "Balance_Payment"
+    ],
+
+    "workflow": [
+      "status",
+      "Remarks",
+      "uploaded_date",
+      "completed_date"
+    ]
+  },
+
+  "columns": {
+
+    "PR_AuthStatus": {
+      "description": "Approval status of purchase request",
+      "synonyms": ["approved", "pending pr", "pr approval", "pr status"],
+      "type": "text",
+      "operations": ["filter", "count"],
+      "examples": [
+        "approved pr",
+        "pending pr",
+        "count approved pr"
+      ]
+    },
+
+    "Supplier": {
+      "description": "Vendor or supplier company name",
+      "synonyms": ["supplier", "vendor", "company", "supplier name"],
+      "type": "text",
+      "operations": ["filter", "group", "search"],
+      "filter_style": "LIKE",
+      "examples": [
+        "po for corporate electricals",
+        "supplier spend",
+        "top suppliers"
+      ]
+    },
+
+    "PO_Value": {
+      "description": "Purchase order monetary value",
+      "synonyms": ["spend", "po value", "amount", "cost"],
+      "type": "numeric",
+      "operations": ["sum", "avg", "group", "rank"],
+      "examples": [
+        "total po value",
+        "supplier spend",
+        "highest po value"
+      ]
+    },
+
+    "Invoice_status": {
+      "description": "Invoice payment status",
+      "synonyms": ["invoice", "paid", "unpaid", "payment status"],
+      "type": "text",
+      "operations": ["filter", "count"],
+      "examples": [
+        "unpaid invoices",
+        "pending invoices"
+      ]
+    },
+
+    "Balance_Payment": {
+      "description": "Remaining unpaid payment value",
+      "synonyms": ["pending payment", "outstanding", "balance"],
+      "type": "numeric",
+      "operations": ["filter", "sum"],
+      "examples": [
+        "pending payment",
+        "outstanding value"
+      ]
+    },
+
+    "status": {
+      "description": "Workflow progress status",
+      "synonyms": ["progress", "work status", "task status"],
+      "type": "text",
+      "operations": ["filter", "count", "group"],
+      "examples": [
+        "work in progress",
+        "completed tasks"
+      ]
+    },
+
+    "PR_Date": {
+      "description": "Purchase request creation date",
+      "synonyms": ["pr date", "request date"],
+      "type": "date",
+      "operations": ["filter", "aging"],
+      "examples": [
+        "pr older than 30 days",
+        "pr this year"
+      ]
+    },
+
+    "PO_Date": {
+      "description": "Purchase order date",
+      "synonyms": ["po date", "order date"],
+      "type": "date",
+      "operations": ["filter", "aging"],
+      "examples": [
+        "po this month",
+        "recent po"
+      ]
+    }
+  },
+
+  "business_rules": {
+
+    "approved pr": "PR_AuthStatus = 'approved'",
+    "pending pr": "PR_AuthStatus != 'approved'",
+
+    "unpaid invoice": "Invoice_status IS NULL OR Invoice_status LIKE '%pending%'",
+
+    "pending payment": "Balance_Payment IS NOT NULL",
+
+    "work in progress": "status LIKE '%work in progress%'",
+
+    "completed": "status LIKE '%completed%'"
+  },
+
+  "aggregation_patterns": {
+
+    "count": "COUNT(*)",
+    "total": "SUM(column)",
+    "average": "AVG(column)",
+    "ranking": "GROUP BY column ORDER BY SUM(column) DESC",
+    "top_n": "ORDER BY value DESC LIMIT n"
+  },
+
+  "date_logic": {
+    "older_than_days": "date(column) < date('now', '-N days')",
+    "this_year": "strftime('%Y', column) = strftime('%Y', 'now')",
+    "this_month": "strftime('%Y-%m', column) = strftime('%Y-%m', 'now')"
+  },
+
+  "rules": [
+    "Use ONLY columns defined in schema",
+    "Never invent column names",
+    "Supplier filtering must use LIKE",
+    "Use lowercase comparisons for text",
+    "SELECT only",
+    "SQLite syntax only",
+    "Return SQL only"
+  ]
+}

@@ -1,0 +1,29 @@
+# Backend
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+pydantic==2.6.4
+
+# Frontend
+streamlit==1.31.1
+requests==2.31.0
+
+# Data
+pandas==2.2.1
+openpyxl==3.1.2
+
+# Database (builtin, but keeping for clarity)
+# sqlite3 -> built-in, no install needed
+
+# LLM (OpenAI-compatible client)
+openai==1.12.0
+
+pandas
+openpyxl
+langchain
+langchain-community
+langchain-core
+faiss-cpu
+requests
+tqdm
+langgraphs
+langchain-schema
