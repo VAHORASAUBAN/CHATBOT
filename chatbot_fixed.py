@@ -394,7 +394,7 @@ def load_knowledge():
 def build_prompt(user_query, kb, error=""):
 
     return f"""
-You are a Database helper.
+You are a chatbot assistant.
 
 Knowledge Base:
 {json.dumps(kb, indent=2)}
