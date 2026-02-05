@@ -434,44 +434,77 @@ def load_knowledge():
 # SQL:
 # """
 
-def build_prompt(user_query, kb, error=""):
+
+
+def build_intent_prompt(user_query: str):
 
     return f"""
-You are an expert data analyst chatbot that converts natural language into correct SQL.
 
-Your goal is to understand human intent, shortcuts, and ambiguity,
-then produce the SQL that best answers the question.
+Your job is to interpret a human request and convert it into a structured query plan.
+
+Do NOT write SQL.
+Do NOT explain anything.
+Output ONLY valid JSON.
+
+Understand shortcuts, ranking language, aggregation, and ambiguity.
+
+JSON schema:
+
+{{
+  "action": "lookup | aggregation | ranking | grouping",
+  "target_columns": [],
+  "metric_column": null,
+  "aggregation": "count | sum | avg | max | min | null",
+  "order": "asc | desc | null",
+  "limit": null,
+  "filters": [
+    {{
+      "column": "",
+      "operator": "=",
+      "value": ""
+    }}
+  ]
+}}
+
+Rules:
+
+- "how many" → aggregation=count
+- "total" → aggregation=sum
+- "average" → aggregation=avg
+- "highest/top" → ranking + order=desc
+- "lowest" → ranking + order=asc
+- ranking implies LIMIT
+- grouping implies aggregation per column
+- if no aggregation → lookup
+- resolve fuzzy wording logically
+- never invent columns
+- return JSON only
+
+User query:
+{user_query}
+"""
+
+def build_sql_prompt(intent: dict, kb):
+
+    return f"""
+You are a SQL generator.
+
+Convert the structured intent into a correct SQLite query.
+
+Intent:
+{json.dumps(intent, indent=2)}
 
 Knowledge Base:
 {json.dumps(kb, indent=2)}
 
-Reasoning guidelines:
+Rules:
 
-- Interpret human phrasing intelligently, not literally.
-- If user asks for "top", "highest", or ranking → use ORDER BY + LIMIT.
-- If user asks "how many" → use COUNT.
-- If user asks totals → use SUM.
-- If user asks averages → use AVG.
-- Prefer ranking over MAX() when user wants top results.
-- Use GROUP BY when aggregation implies grouping.
-- Use sample values to resolve fuzzy matches.
-- Never invent columns.
-- Only generate valid SQLite SELECT queries.
+- Use ONLY columns from the knowledge base
+- Only SELECT queries
+- Do not explain anything
+- Never invent fields
+- Output SQL only
 
-Behavior rules:
-
-- Optimize SQL for correctness and clarity.
-- Handle incomplete phrasing intelligently.
-- Assume the user wants the most useful answer.
-- If ambiguous, choose the interpretation that returns meaningful data.
-
-User query:
-{user_query}
-
-Previous error:
-{error}
-
-Output only SQL. No explanation.
 SQL:
 """
 
@@ -547,21 +580,28 @@ def sql_agent(query: str, kb):
     error = ""
 
     for attempt in range(3):
-        prompt = build_prompt(query, kb, error)
-        sql = llm(prompt)
-        sql = normalize_sql_quotes(sql)
+        try:
+            # Stage 1: NLP → intent
+            intent_json = llm(build_intent_prompt(query))
+            intent = json.loads(intent_json)
 
-        debug(f"Attempt {attempt+1}: {sql}")
+            # Stage 2: intent → SQL
+            sql_prompt = build_sql_prompt(intent, kb)
+            sql = llm(sql_prompt)
+            sql = normalize_sql_quotes(sql)
 
-        if validate_sql(sql, kb):
-            try:
+            debug(f"Attempt {attempt+1}: {sql}")
+
+            if validate_sql(sql, kb):
                 return run_sql(sql)
-            except Exception as e:
-                error = str(e)
-        else:
+
             error = "Invalid SQL"
 
+        except Exception as e:
+            error = str(e)
+
     return "Failed to generate valid SQL."
+
 
 
 # ============================================================
