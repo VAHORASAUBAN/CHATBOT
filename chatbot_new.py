@@ -1,8 +1,8 @@
 import pandas as pd
 import sqlite3
-import os
 import json
 import traceback
+import re
 from typing import TypedDict, Optional
 from datetime import datetime
 
@@ -17,7 +17,7 @@ from langgraph.graph import StateGraph, END
 
 EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
 SQLITE_DB = "procurement.db"
-KNOWLEDGE_JSON = "knowledge_base.json"
+KNOWLEDGE_JSON = "Intent_base.json"
 
 LLM_BASE_URL = "http://45.127.102.236:8000/v1"
 LLM_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
@@ -33,10 +33,6 @@ def debug(msg):
 # ============================================================
 # SAFE JSON CONVERSION
 # ============================================================
-import pandas as pd
-
-xls = pd.ExcelFile("C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx")
-print(xls.sheet_names)
 
 def to_json_safe(x):
     if pd.isna(x):
@@ -46,10 +42,6 @@ def to_json_safe(x):
     if isinstance(x, (int, float, str, bool)):
         return x
     return str(x)
-
-# ============================================================
-# NORMALIZATION
-# ============================================================
 
 def normalize(x):
     if pd.isna(x):
@@ -61,19 +53,13 @@ def normalize(x):
     return x
 
 # ============================================================
-# EXCEL → SQLITE
+# EXCEL LOADER
 # ============================================================
-import re
 
 def clean_column(col: str) -> str:
     col = col.strip().lower()
-
-    # replace special characters with underscore
     col = re.sub(r'[^a-z0-9]+', '_', col)
-
-    # collapse multiple underscores
     col = re.sub(r'_+', '_', col)
-
     return col.strip('_')
 
 def excel_to_sqlite():
@@ -82,18 +68,16 @@ def excel_to_sqlite():
     xls = pd.ExcelFile(EXCEL_PATH)
     print("Available sheets:", xls.sheet_names)
 
-    # try each sheet until we find real data
     df = None
     for sheet in xls.sheet_names:
         test_df = pd.read_excel(xls, sheet_name=sheet)
-
         if test_df.shape[1] > 3 and test_df.shape[0] > 1:
             df = test_df
             print(f"Using sheet: {sheet}")
             break
 
     if df is None:
-        raise Exception("No usable sheet found in Excel")
+        raise Exception("No usable sheet found")
 
     df.columns = [clean_column(str(c)) for c in df.columns]
     df = df.apply(lambda col: col.map(normalize))
@@ -110,7 +94,7 @@ def excel_to_sqlite():
     return df
 
 # ============================================================
-# AUTO KNOWLEDGE JSON BUILDER
+# KNOWLEDGE JSON
 # ============================================================
 
 def build_knowledge_json(df: pd.DataFrame):
@@ -134,13 +118,12 @@ def build_knowledge_json(df: pd.DataFrame):
             "title": readable_title,
             "type": str(df[col].dtype),
 
-            "category": "unknown",  # optional: identifier/date/status/amount/text
+            "category": "unknown",
 
-            "description": f"""
-This column represents '{readable_title}' in the procurement workflow.
-It stores structured information used for filtering, grouping,
-and answering business questions about transactions.
-""".strip(),
+            "description": (
+                f"This column represents '{readable_title}' in the procurement workflow. "
+                "It is used for filtering, grouping, and answering business questions."
+            ),
 
             "user_intent_examples": [
                 f"show records by {readable_title}",
@@ -168,112 +151,53 @@ and answering business questions about transactions.
     return kb
 
 
-# ============================================================
-# LOAD KNOWLEDGE
-# ============================================================
-
 def load_knowledge():
     with open(KNOWLEDGE_JSON, encoding="utf-8") as f:
         return json.load(f)
 
 # ============================================================
-# PROMPT CONTRACT
+# INTENT PROMPT (STAGE 1)
 # ============================================================
-
-# def build_prompt(user_query, kb, error=""):
-
-#     return f"""
-# You are a data chatbot assistant,be smart helpful and concise.
-
-# Knowledge Base:
-# {json.dumps(kb, indent=2)}
-
-# Rules:
-# - Match values to sample values
-# - Only SELECT queries
-# - Output SQL
-
-# User query:
-# {user_query}
-
-# Previous error:
-# {error}
-
-# SQL:
-# """
-
-
 
 def build_intent_prompt(user_query: str):
 
     return f"""
+Convert the user request into structured intent JSON.
 
-Your job is to interpret a human request and convert it into a structured query plan.
+Only output valid JSON.
 
-Do NOT write SQL.
-Do NOT explain anything.
-Output ONLY valid JSON.
-
-Understand shortcuts, ranking language, aggregation, and ambiguity.
-
-JSON schema:
+Schema:
 
 {{
-  "action": "lookup | aggregation | ranking | grouping",
+  "action": "lookup | aggregation | ranking",
   "target_columns": [],
   "metric_column": null,
   "aggregation": "count | sum | avg | max | min | null",
   "order": "asc | desc | null",
   "limit": null,
-  "filters": [
-    {{
-      "column": "",
-      "operator": "=",
-      "value": ""
-    }}
-  ]
+  "filters": []
 }}
-
-Rules:
-
-- "how many" → aggregation=count
-- "total" → aggregation=sum
-- "average" → aggregation=avg
-- "highest/top" → ranking + order=desc
-- "lowest" → ranking + order=asc
-- ranking implies LIMIT
-- grouping implies aggregation per column
-- if no aggregation → lookup
-- resolve fuzzy wording logically
-- never invent columns
-- return JSON only
 
 User query:
 {user_query}
 """
 
+# ============================================================
+# SQL PROMPT (STAGE 2)
+# ============================================================
+
 def build_sql_prompt(intent: dict, kb):
 
     return f"""
-You are a SQL generator.
-
-Convert the structured intent into a correct SQLite query.
+Convert intent into SQLite SQL.
 
 Intent:
 {json.dumps(intent, indent=2)}
 
-Knowledge Base:
+Knowledge base:
 {json.dumps(kb, indent=2)}
 
-Rules:
-
-- Use ONLY columns from the knowledge base
-- Only SELECT queries
-- Do not explain anything
-- Never invent fields
-- Output SQL only
-
-SQL:
+Only output SQL SELECT query.
 """
 
 # ============================================================
@@ -292,42 +216,27 @@ def llm(prompt: str) -> str:
 # ============================================================
 # SQL VALIDATION
 # ============================================================
-import re
 
 def normalize_sql_quotes(sql: str) -> str:
-    # convert "text" → 'text' only when it's a value, not column
     return re.sub(r'"([^"]*)"', r"'\1'", sql)
 
 def validate_sql(sql: str, kb) -> bool:
     try:
         tree = sqlglot.parse_one(sql, read="sqlite")
-
-        if not isinstance(tree, exp.Select):
-            return False
-
-        # canonical lowercase schema
         valid_cols = {c.lower() for c in kb["columns"].keys()}
 
         for col in tree.find_all(exp.Column):
-            col_name = col.name.lower()
-
-            if col_name not in valid_cols:
+            if col.name.lower() not in valid_cols:
                 debug(f"Invalid column: {col.name}")
                 return False
 
-        conn = sqlite3.connect(SQLITE_DB)
-        conn.execute(f"EXPLAIN QUERY PLAN {sql}")
-        conn.close()
-
         return True
-
     except Exception as e:
         debug(f"Validation error: {e}")
         return False
 
-
 # ============================================================
-# EXECUTE SQL
+# EXECUTION
 # ============================================================
 
 def run_sql(sql: str):
@@ -341,39 +250,33 @@ def run_sql(sql: str):
     return df.to_string(index=False)
 
 # ============================================================
-# SQL AGENT LOOP
+# AGENT LOOP
 # ============================================================
 
 def sql_agent(query: str, kb):
-    error = ""
 
     for attempt in range(3):
+
+        intent_json = llm(build_intent_prompt(query))
+        debug(f"Intent raw: {intent_json}")
+
         try:
-            # Stage 1: NLP → intent
-            intent_json = llm(build_intent_prompt(query))
             intent = json.loads(intent_json)
+        except:
+            continue
 
-            # Stage 2: intent → SQL
-            sql_prompt = build_sql_prompt(intent, kb)
-            sql = llm(sql_prompt)
-            sql = normalize_sql_quotes(sql)
+        sql = llm(build_sql_prompt(intent, kb))
+        sql = normalize_sql_quotes(sql)
 
-            debug(f"Attempt {attempt+1}: {sql}")
+        debug(f"Attempt {attempt+1}: {sql}")
 
-            if validate_sql(sql, kb):
-                return run_sql(sql)
-
-            error = "Invalid SQL"
-
-        except Exception as e:
-            error = str(e)
+        if validate_sql(sql, kb):
+            return run_sql(sql)
 
     return "Failed to generate valid SQL."
 
-
-
 # ============================================================
-# LANGGRAPH STATE
+# LANGGRAPH
 # ============================================================
 
 class ChatState(TypedDict):
@@ -399,9 +302,8 @@ graph = builder.compile()
 print("\nInitializing assistant...")
 
 df = excel_to_sqlite()
-kb = build_knowledge_json(df)
+build_knowledge_json(df)
 
-print(f"Columns loaded: {len(df.columns)}")
 print("\nREADY — type exit to quit\n")
 
 # ============================================================
