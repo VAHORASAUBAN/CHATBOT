@@ -229,6 +229,7 @@
 #     except Exception as e:
 #         print("Error:", e)
 #         traceback.print_exc()
+
 import pandas as pd
 import sqlite3
 import os
@@ -264,6 +265,10 @@ def debug(msg):
 # ============================================================
 # SAFE JSON CONVERSION
 # ============================================================
+import pandas as pd
+
+xls = pd.ExcelFile("C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx")
+print(xls.sheet_names)
 
 def to_json_safe(x):
     if pd.isna(x):
@@ -306,12 +311,28 @@ def clean_column(col: str) -> str:
 def excel_to_sqlite():
     print("Building SQLite database...")
 
-    df = pd.read_excel(EXCEL_PATH)
+    xls = pd.ExcelFile(EXCEL_PATH)
+    print("Available sheets:", xls.sheet_names)
 
-    df.columns = [clean_column(c) for c in df.columns]
+    # try each sheet until we find real data
+    df = None
+    for sheet in xls.sheet_names:
+        test_df = pd.read_excel(xls, sheet_name=sheet)
 
-    # apply normalize column-wise (applymap deprecated)
+        if test_df.shape[1] > 3 and test_df.shape[0] > 1:
+            df = test_df
+            print(f"Using sheet: {sheet}")
+            break
+
+    if df is None:
+        raise Exception("No usable sheet found in Excel")
+
+    df.columns = [clean_column(str(c)) for c in df.columns]
     df = df.apply(lambda col: col.map(normalize))
+    df = df.dropna(how="all")
+
+    print("Detected columns:", df.columns.tolist())
+    print("Shape:", df.shape)
 
     conn = sqlite3.connect(SQLITE_DB)
     df.to_sql("data", conn, if_exists="replace", index=False)
@@ -391,19 +412,58 @@ def load_knowledge():
 # PROMPT CONTRACT
 # ============================================================
 
+# def build_prompt(user_query, kb, error=""):
+
+#     return f"""
+# You are a data chatbot assistant,be smart helpful and concise.
+
+# Knowledge Base:
+# {json.dumps(kb, indent=2)}
+
+# Rules:
+# - Match values to sample values
+# - Only SELECT queries
+# - Output SQL
+
+# User query:
+# {user_query}
+
+# Previous error:
+# {error}
+
+# SQL:
+# """
+
 def build_prompt(user_query, kb, error=""):
 
     return f"""
-You are a chatbot assistant.
+You are an expert data analyst chatbot that converts natural language into correct SQL.
+
+Your goal is to understand human intent, shortcuts, and ambiguity,
+then produce the SQL that best answers the question.
 
 Knowledge Base:
 {json.dumps(kb, indent=2)}
 
-Rules:
-- Match values to sample values
-- Never invent fields
-- Only SELECT queries
-- Output SQL only
+Reasoning guidelines:
+
+- Interpret human phrasing intelligently, not literally.
+- If user asks for "top", "highest", or ranking → use ORDER BY + LIMIT.
+- If user asks "how many" → use COUNT.
+- If user asks totals → use SUM.
+- If user asks averages → use AVG.
+- Prefer ranking over MAX() when user wants top results.
+- Use GROUP BY when aggregation implies grouping.
+- Use sample values to resolve fuzzy matches.
+- Never invent columns.
+- Only generate valid SQLite SELECT queries.
+
+Behavior rules:
+
+- Optimize SQL for correctness and clarity.
+- Handle incomplete phrasing intelligently.
+- Assume the user wants the most useful answer.
+- If ambiguous, choose the interpretation that returns meaningful data.
 
 User query:
 {user_query}
@@ -411,6 +471,7 @@ User query:
 Previous error:
 {error}
 
+Output only SQL. No explanation.
 SQL:
 """
 
