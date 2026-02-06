@@ -11,9 +11,9 @@ import sqlglot
 from sqlglot import exp
 from langgraph.graph import StateGraph, END
 
-# ============================================================
+
 # CONFIG
-# ============================================================
+
 
 EXCEL_PATH = "C:/Users/sauban.vahora/Desktop/Chatbot/data/SGD.xlsx"
 SQLITE_DB = "procurement.db"
@@ -30,9 +30,9 @@ def debug(msg):
     if DEBUG:
         print("[DEBUG]", msg)
 
-# ============================================================
+
 # SAFE JSON CONVERSION
-# ============================================================
+
 
 def to_json_safe(x):
     if pd.isna(x):
@@ -52,9 +52,9 @@ def normalize(x):
         return x.isoformat()
     return x
 
-# ============================================================
+
 # EXCEL LOADER
-# ============================================================
+
 
 def clean_column(col: str) -> str:
     col = col.strip().lower()
@@ -93,9 +93,9 @@ def excel_to_sqlite():
     print("✓ SQLite ready")
     return df
 
-# ============================================================
+
 # KNOWLEDGE JSON
-# ============================================================
+
 
 def build_knowledge_json(df: pd.DataFrame):
     print("Generating knowledge base JSON...")
@@ -155,9 +155,9 @@ def load_knowledge():
     with open(KNOWLEDGE_JSON, encoding="utf-8") as f:
         return json.load(f)
 
-# ============================================================
+
 # INTENT PROMPT (STAGE 1)
-# ============================================================
+
 
 def build_intent_prompt(user_query: str):
 
@@ -182,9 +182,9 @@ User query:
 {user_query}
 """
 
-# ============================================================
+
 # SQL PROMPT (STAGE 2)
-# ============================================================
+
 
 def build_sql_prompt(intent: dict, kb):
 
@@ -200,9 +200,9 @@ Knowledge base:
 Only output SQL SELECT query.
 """
 
-# ============================================================
+
 # LLM CALL
-# ============================================================
+
 
 def llm(prompt: str) -> str:
     resp = client.chat.completions.create(
@@ -213,9 +213,9 @@ def llm(prompt: str) -> str:
     )
     return resp.choices[0].message.content.strip()
 
-# ============================================================
+
 # SQL VALIDATION
-# ============================================================
+
 
 def normalize_sql_quotes(sql: str) -> str:
     return re.sub(r'"([^"]*)"', r"'\1'", sql)
@@ -235,9 +235,9 @@ def validate_sql(sql: str, kb) -> bool:
         debug(f"Validation error: {e}")
         return False
 
-# ============================================================
+
 # EXECUTION
-# ============================================================
+
 
 def run_sql(sql: str):
     conn = sqlite3.connect(SQLITE_DB)
@@ -249,9 +249,9 @@ def run_sql(sql: str):
 
     return df.to_string(index=False)
 
-# ============================================================
+
 # AGENT LOOP
-# ============================================================
+
 
 def sql_agent(query: str, kb):
 
@@ -275,9 +275,9 @@ def sql_agent(query: str, kb):
 
     return "Failed to generate valid SQL."
 
-# ============================================================
+
 # LANGGRAPH
-# ============================================================
+
 
 class ChatState(TypedDict):
     query: str
@@ -295,9 +295,7 @@ builder.add_edge("sql", END)
 
 graph = builder.compile()
 
-# ============================================================
 # INIT
-# ============================================================
 
 print("\nInitializing assistant...")
 
@@ -306,9 +304,7 @@ build_knowledge_json(df)
 
 print("\nREADY — type exit to quit\n")
 
-# ============================================================
 # CHAT LOOP
-# ============================================================
 
 while True:
     q = input("You: ").strip()
