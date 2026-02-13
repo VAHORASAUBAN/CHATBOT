@@ -1,28 +1,9 @@
 {
   "table": "data",
-  "description": "Procurement dataset containing purchase requests, purchase orders, suppliers, and authorization status.",
   "columns": {
     "sr_no": {
       "name": "sr_no",
-      "title": "Sr No",
-      "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Sr No' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Sr No",
-        "filter using Sr No",
-        "group by Sr No"
-      ],
-      "synonyms": [
-        "sr no",
-        "sr_no",
-        "sr no"
-      ],
-      "keywords": [
-        "sr",
-        "no"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+      "type": "int64",
       "sample_values": [
         1,
         2,
@@ -38,24 +19,7 @@
     },
     "projectcode": {
       "name": "projectcode",
-      "title": "Projectcode",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Projectcode' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Projectcode",
-        "filter using Projectcode",
-        "group by Projectcode"
-      ],
-      "synonyms": [
-        "projectcode",
-        "projectcode",
-        "projectcode"
-      ],
-      "keywords": [
-        "projectcode"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         2002010.0,
         4001040.0,
@@ -71,24 +35,7 @@
     },
     "workmaster": {
       "name": "workmaster",
-      "title": "Workmaster",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Workmaster' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Workmaster",
-        "filter using Workmaster",
-        "group by Workmaster"
-      ],
-      "synonyms": [
-        "workmaster",
-        "workmaster",
-        "workmaster"
-      ],
-      "keywords": [
-        "workmaster"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "facility",
         "cold end",
@@ -96,7 +43,6 @@
         "hot end",
         "it",
         "quality",
-        "nos",
         "finance",
         "common",
         "hr&training"
@@ -104,25 +50,7 @@
     },
     "pr_docno": {
       "name": "pr_docno",
-      "title": "Pr Docno",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pr Docno' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pr Docno",
-        "filter using Pr Docno",
-        "group by Pr Docno"
-      ],
-      "synonyms": [
-        "pr docno",
-        "pr_docno",
-        "pr docno"
-      ],
-      "keywords": [
-        "pr",
-        "docno"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "cpr:sc/cpr/2023/0002",
         "cpr:sc/cpr/2025/0206",
@@ -138,25 +66,7 @@
     },
     "pr_date": {
       "name": "pr_date",
-      "title": "Pr Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pr Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pr Date",
-        "filter using Pr Date",
-        "group by Pr Date"
-      ],
-      "synonyms": [
-        "pr date",
-        "pr_date",
-        "pr date"
-      ],
-      "keywords": [
-        "pr",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2023-07-07T00:00:00",
         "2025-03-13T00:00:00",
@@ -172,26 +82,7 @@
     },
     "pr_authorised_date": {
       "name": "pr_authorised_date",
-      "title": "Pr Authorised Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pr Authorised Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pr Authorised Date",
-        "filter using Pr Authorised Date",
-        "group by Pr Authorised Date"
-      ],
-      "synonyms": [
-        "pr authorised date",
-        "pr_authorised_date",
-        "pr authorised date"
-      ],
-      "keywords": [
-        "pr",
-        "authorised",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2023-07-10T00:00:00",
         "2025-03-27T00:00:00",
@@ -207,51 +98,15 @@
     },
     "pr_authstatus": {
       "name": "pr_authstatus",
-      "title": "Pr Authstatus",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pr Authstatus' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pr Authstatus",
-        "filter using Pr Authstatus",
-        "group by Pr Authstatus"
-      ],
-      "synonyms": [
-        "pr authstatus",
-        "pr_authstatus",
-        "pr authstatus"
-      ],
-      "keywords": [
-        "pr",
-        "authstatus"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "approved",
-        "nos",
         "pending"
       ]
     },
     "itemcode": {
       "name": "itemcode",
-      "title": "Itemcode",
-      "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Itemcode' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Itemcode",
-        "filter using Itemcode",
-        "group by Itemcode"
-      ],
-      "synonyms": [
-        "itemcode",
-        "itemcode",
-        "itemcode"
-      ],
-      "keywords": [
-        "itemcode"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+      "type": "int64",
       "sample_values": [
         300000004,
         500005285,
@@ -267,24 +122,7 @@
     },
     "description": {
       "name": "description",
-      "title": "Description",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Description' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Description",
-        "filter using Description",
-        "group by Description"
-      ],
-      "synonyms": [
-        "description",
-        "description",
-        "description"
-      ],
-      "keywords": [
-        "description"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "plumbing design consultancy",
         "100-c iec contactor, 230v 50/60hz, screw terminals, line side, 16a, 1 n.o. 0 n.c. auxiliary contact configuration, single pack-100-c16kf10:allen bradley",
@@ -300,58 +138,23 @@
     },
     "pr_quantity": {
       "name": "pr_quantity",
-      "title": "Pr Quantity",
-      "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pr Quantity' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pr Quantity",
-        "filter using Pr Quantity",
-        "group by Pr Quantity"
-      ],
-      "synonyms": [
-        "pr quantity",
-        "pr_quantity",
-        "pr quantity"
-      ],
-      "keywords": [
-        "pr",
-        "quantity"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+      "type": "float64",
       "sample_values": [
-        1,
-        3,
-        1500,
-        20,
-        7,
-        192,
-        250,
-        200,
-        1000,
-        400
+        1.0,
+        3.0,
+        1500.0,
+        20.0,
+        7.0,
+        192.0,
+        250.0,
+        200.0,
+        1000.0,
+        400.0
       ]
     },
     "uom": {
       "name": "uom",
-      "title": "Uom",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Uom' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Uom",
-        "filter using Uom",
-        "group by Uom"
-      ],
-      "synonyms": [
-        "uom",
-        "uom",
-        "uom"
-      ],
-      "keywords": [
-        "uom"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "nos",
         "mtr",
@@ -360,32 +163,14 @@
         "bag",
         "grs",
         "set",
-        21072,
         "ton",
-        "pac"
+        "pac",
+        "sqm"
       ]
     },
     "po_date": {
       "name": "po_date",
-      "title": "Po Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Date",
-        "filter using Po Date",
-        "group by Po Date"
-      ],
-      "synonyms": [
-        "po date",
-        "po_date",
-        "po date"
-      ],
-      "keywords": [
-        "po",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2023-07-11T00:00:00",
         "2025-04-15T00:00:00",
@@ -401,25 +186,7 @@
     },
     "po_docno": {
       "name": "po_docno",
-      "title": "Po Docno",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Docno' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Docno",
-        "filter using Po Docno",
-        "group by Po Docno"
-      ],
-      "synonyms": [
-        "po docno",
-        "po_docno",
-        "po docno"
-      ],
-      "keywords": [
-        "po",
-        "docno"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "cdpo:6700000002",
         "cdpo:6700000001042",
@@ -435,25 +202,7 @@
     },
     "po_qty": {
       "name": "po_qty",
-      "title": "Po Qty",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Po Qty' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Qty",
-        "filter using Po Qty",
-        "group by Po Qty"
-      ],
-      "synonyms": [
-        "po qty",
-        "po_qty",
-        "po qty"
-      ],
-      "keywords": [
-        "po",
-        "qty"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         1.0,
         3.0,
@@ -469,25 +218,7 @@
     },
     "po_uom": {
       "name": "po_uom",
-      "title": "Po Uom",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Uom' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Uom",
-        "filter using Po Uom",
-        "group by Po Uom"
-      ],
-      "synonyms": [
-        "po uom",
-        "po_uom",
-        "po uom"
-      ],
-      "keywords": [
-        "po",
-        "uom"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "nos",
         "mtr",
@@ -503,26 +234,7 @@
     },
     "po_authorized_date": {
       "name": "po_authorized_date",
-      "title": "Po Authorized Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Authorized Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Authorized Date",
-        "filter using Po Authorized Date",
-        "group by Po Authorized Date"
-      ],
-      "synonyms": [
-        "po authorized date",
-        "po_authorized_date",
-        "po authorized date"
-      ],
-      "keywords": [
-        "po",
-        "authorized",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2023-08-22T00:00:00",
         "2025-04-24T00:00:00",
@@ -538,52 +250,16 @@
     },
     "po_authstatus": {
       "name": "po_authstatus",
-      "title": "Po Authstatus",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Authstatus' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Authstatus",
-        "filter using Po Authstatus",
-        "group by Po Authstatus"
-      ],
-      "synonyms": [
-        "po authstatus",
-        "po_authstatus",
-        "po authstatus"
-      ],
-      "keywords": [
-        "po",
-        "authstatus"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "approved",
         "rejected",
-        14112,
         "pending"
       ]
     },
     "supplier": {
       "name": "supplier",
-      "title": "Supplier",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Supplier' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Supplier",
-        "filter using Supplier",
-        "group by Supplier"
-      ],
-      "synonyms": [
-        "supplier",
-        "supplier",
-        "supplier"
-      ],
-      "keywords": [
-        "supplier"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "darshika consultants pvt ltd",
         "multi vista global pvt ltd",
@@ -599,58 +275,23 @@
     },
     "netvalue": {
       "name": "netvalue",
-      "title": "Netvalue",
-      "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Netvalue' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Netvalue",
-        "filter using Netvalue",
-        "group by Netvalue"
-      ],
-      "synonyms": [
-        "netvalue",
-        "netvalue",
-        "netvalue"
-      ],
-      "keywords": [
-        "netvalue"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+      "type": "float64",
       "sample_values": [
         1899347.1,
-        961330,
-        2248953,
-        1217175,
-        2648480,
-        10008750,
-        53662,
-        884698,
-        28129,
-        112500
+        961330.0,
+        2248953.0,
+        1217175.0,
+        2648480.0,
+        10008750.0,
+        53662.0,
+        884698.0,
+        28129.0,
+        112500.0
       ]
     },
     "net_amount": {
       "name": "net_amount",
-      "title": "Net Amount",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Net Amount' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Net Amount",
-        "filter using Net Amount",
-        "group by Net Amount"
-      ],
-      "synonyms": [
-        "net amount",
-        "net_amount",
-        "net amount"
-      ],
-      "keywords": [
-        "net",
-        "amount"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         364110.0,
         2311.0,
@@ -666,24 +307,7 @@
     },
     "gst": {
       "name": "gst",
-      "title": "Gst",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Gst' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Gst",
-        "filter using Gst",
-        "group by Gst"
-      ],
-      "synonyms": [
-        "gst",
-        "gst",
-        "gst"
-      ],
-      "keywords": [
-        "gst"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         18.0,
         28.0,
@@ -693,24 +317,7 @@
     },
     "discount": {
       "name": "discount",
-      "title": "Discount",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Discount' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Discount",
-        "filter using Discount",
-        "group by Discount"
-      ],
-      "synonyms": [
-        "discount",
-        "discount",
-        "discount"
-      ],
-      "keywords": [
-        "discount"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "100 % advance",
         1152,
@@ -726,60 +333,23 @@
     },
     "c_f_charges": {
       "name": "c_f_charges",
-      "title": "C F Charges",
-      "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'C F Charges' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by C F Charges",
-        "filter using C F Charges",
-        "group by C F Charges"
-      ],
-      "synonyms": [
-        "c f charges",
-        "c_f_charges",
-        "c f charges"
-      ],
-      "keywords": [
-        "c",
-        "f",
-        "charges"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
+      "type": "float64",
       "sample_values": [
-        91,
-        "pending",
-        1197360,
-        17592,
-        14160,
-        5000,
+        91.0,
+        1197360.0,
+        17592.0,
+        14160.0,
+        5000.0,
         10556.25,
-        60000,
-        65000,
-        1038
+        60000.0,
+        65000.0,
+        1038.0,
+        3000800.0
       ]
     },
     "freight_charges": {
       "name": "freight_charges",
-      "title": "Freight Charges",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Freight Charges' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Freight Charges",
-        "filter using Freight Charges",
-        "group by Freight Charges"
-      ],
-      "synonyms": [
-        "freight charges",
-        "freight_charges",
-        "freight charges"
-      ],
-      "keywords": [
-        "freight",
-        "charges"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         6500.0,
         10000.0,
@@ -795,25 +365,7 @@
     },
     "gross_value": {
       "name": "gross_value",
-      "title": "Gross Value",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Gross Value' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Gross Value",
-        "filter using Gross Value",
-        "group by Gross Value"
-      ],
-      "synonyms": [
-        "gross value",
-        "gross_value",
-        "gross value"
-      ],
-      "keywords": [
-        "gross",
-        "value"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         364092.0,
         2293.0,
@@ -829,25 +381,7 @@
     },
     "terms_conditions": {
       "name": "terms_conditions",
-      "title": "Terms Conditions",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Terms Conditions' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Terms Conditions",
-        "filter using Terms Conditions",
-        "group by Terms Conditions"
-      ],
-      "synonyms": [
-        "terms conditions",
-        "terms_conditions",
-        "terms conditions"
-      ],
-      "keywords": [
-        "terms",
-        "conditions"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "payment terms:-30 days credit",
         "payterms  : 100% after material delivery with in 30 days,delivery terms:-8-10 weeks ( actual delivery time will be confirmed upon order acceptance).",
@@ -863,24 +397,7 @@
     },
     "incoterms": {
       "name": "incoterms",
-      "title": "Incoterms",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Incoterms' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Incoterms",
-        "filter using Incoterms",
-        "group by Incoterms"
-      ],
-      "synonyms": [
-        "incoterms",
-        "incoterms",
-        "incoterms"
-      ],
-      "keywords": [
-        "incoterms"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "-",
         "for",
@@ -894,25 +411,7 @@
     },
     "grn_date": {
       "name": "grn_date",
-      "title": "Grn Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Grn Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Grn Date",
-        "filter using Grn Date",
-        "group by Grn Date"
-      ],
-      "synonyms": [
-        "grn date",
-        "grn_date",
-        "grn date"
-      ],
-      "keywords": [
-        "grn",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2024-08-10T00:00:00",
         0,
@@ -928,25 +427,7 @@
     },
     "grn_qty": {
       "name": "grn_qty",
-      "title": "Grn Qty",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Grn Qty' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Grn Qty",
-        "filter using Grn Qty",
-        "group by Grn Qty"
-      ],
-      "synonyms": [
-        "grn qty",
-        "grn_qty",
-        "grn qty"
-      ],
-      "keywords": [
-        "grn",
-        "qty"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         0.3,
         1.0,
@@ -962,25 +443,7 @@
     },
     "grn_docno": {
       "name": "grn_docno",
-      "title": "Grn Docno",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Grn Docno' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Grn Docno",
-        "filter using Grn Docno",
-        "group by Grn Docno"
-      ],
-      "synonyms": [
-        "grn docno",
-        "grn_docno",
-        "grn docno"
-      ],
-      "keywords": [
-        "grn",
-        "docno"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "cdpv:sc/cpv/2024/0239",
         "cdgrn:sc/cdm/2025/0650",
@@ -996,49 +459,14 @@
     },
     "linkstatus": {
       "name": "linkstatus",
-      "title": "Linkstatus",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Linkstatus' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Linkstatus",
-        "filter using Linkstatus",
-        "group by Linkstatus"
-      ],
-      "synonyms": [
-        "linkstatus",
-        "linkstatus",
-        "linkstatus"
-      ],
-      "keywords": [
-        "linkstatus"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "pending"
       ]
     },
     "payment_value": {
       "name": "payment_value",
-      "title": "Payment Value",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Payment Value' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Payment Value",
-        "filter using Payment Value",
-        "group by Payment Value"
-      ],
-      "synonyms": [
-        "payment value",
-        "payment_value",
-        "payment value"
-      ],
-      "keywords": [
-        "payment",
-        "value"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         672369.0,
         436580.0,
@@ -1054,25 +482,7 @@
     },
     "pending_qty": {
       "name": "pending_qty",
-      "title": "Pending Qty",
       "type": "float64",
-      "category": "unknown",
-      "description": "This column represents 'Pending Qty' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pending Qty",
-        "filter using Pending Qty",
-        "group by Pending Qty"
-      ],
-      "synonyms": [
-        "pending qty",
-        "pending_qty",
-        "pending qty"
-      ],
-      "keywords": [
-        "pending",
-        "qty"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         0.7,
         1.0,
@@ -1088,26 +498,7 @@
     },
     "po_delivery_date": {
       "name": "po_delivery_date",
-      "title": "Po Delivery Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Po Delivery Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Po Delivery Date",
-        "filter using Po Delivery Date",
-        "group by Po Delivery Date"
-      ],
-      "synonyms": [
-        "po delivery date",
-        "po_delivery_date",
-        "po delivery date"
-      ],
-      "keywords": [
-        "po",
-        "delivery",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2023-07-25T00:00:00",
         "2025-05-13T00:00:00",
@@ -1123,26 +514,7 @@
     },
     "terms_conditions_1": {
       "name": "terms_conditions_1",
-      "title": "Terms Conditions 1",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Terms Conditions 1' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Terms Conditions 1",
-        "filter using Terms Conditions 1",
-        "group by Terms Conditions 1"
-      ],
-      "synonyms": [
-        "terms conditions 1",
-        "terms_conditions_1",
-        "terms conditions 1"
-      ],
-      "keywords": [
-        "terms",
-        "conditions",
-        "1"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "30% advance, 30% against documents, 30% against documents,and 10% upon completion",
         "30 days credit",
@@ -1158,52 +530,12 @@
     },
     "advance_user_comment": {
       "name": "advance_user_comment",
-      "title": "Advance User Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Advance User Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Advance User Comment",
-        "filter using Advance User Comment",
-        "group by Advance User Comment"
-      ],
-      "synonyms": [
-        "advance user comment",
-        "advance_user_comment",
-        "advance user comment"
-      ],
-      "keywords": [
-        "advance",
-        "user",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": []
     },
     "status_of_order_user_comment": {
       "name": "status_of_order_user_comment",
-      "title": "Status Of Order User Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Status Of Order User Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Status Of Order User Comment",
-        "filter using Status Of Order User Comment",
-        "group by Status Of Order User Comment"
-      ],
-      "synonyms": [
-        "status of order user comment",
-        "status_of_order_user_comment",
-        "status of order user comment"
-      ],
-      "keywords": [
-        "status",
-        "of",
-        "order",
-        "user",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "not received",
         "received",
@@ -1212,28 +544,7 @@
     },
     "status_of_order_vendor_comment": {
       "name": "status_of_order_vendor_comment",
-      "title": "Status Of Order Vendor Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Status Of Order Vendor Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Status Of Order Vendor Comment",
-        "filter using Status Of Order Vendor Comment",
-        "group by Status Of Order Vendor Comment"
-      ],
-      "synonyms": [
-        "status of order vendor comment",
-        "status_of_order_vendor_comment",
-        "status of order vendor comment"
-      ],
-      "keywords": [
-        "status",
-        "of",
-        "order",
-        "vendor",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "not delivered",
         "this po is entirely billed",
@@ -1247,106 +558,24 @@
     },
     "pre_dispatch_payment_user_comment": {
       "name": "pre_dispatch_payment_user_comment",
-      "title": "Pre Dispatch Payment User Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pre Dispatch Payment User Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pre Dispatch Payment User Comment",
-        "filter using Pre Dispatch Payment User Comment",
-        "group by Pre Dispatch Payment User Comment"
-      ],
-      "synonyms": [
-        "pre dispatch payment user comment",
-        "pre_dispatch_payment_user_comment",
-        "pre dispatch payment user comment"
-      ],
-      "keywords": [
-        "pre",
-        "dispatch",
-        "payment",
-        "user",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": []
     },
     "pre_dispatch_payment_vendor_comment": {
       "name": "pre_dispatch_payment_vendor_comment",
-      "title": "Pre Dispatch Payment Vendor Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pre Dispatch Payment Vendor Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pre Dispatch Payment Vendor Comment",
-        "filter using Pre Dispatch Payment Vendor Comment",
-        "group by Pre Dispatch Payment Vendor Comment"
-      ],
-      "synonyms": [
-        "pre dispatch payment vendor comment",
-        "pre_dispatch_payment_vendor_comment",
-        "pre dispatch payment vendor comment"
-      ],
-      "keywords": [
-        "pre",
-        "dispatch",
-        "payment",
-        "vendor",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
-      "sample_values": [
-        "open"
-      ]
+      "sample_values": []
     },
     "eta_vendor_comment": {
       "name": "eta_vendor_comment",
-      "title": "Eta Vendor Comment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Eta Vendor Comment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Eta Vendor Comment",
-        "filter using Eta Vendor Comment",
-        "group by Eta Vendor Comment"
-      ],
-      "synonyms": [
-        "eta vendor comment",
-        "eta_vendor_comment",
-        "eta vendor comment"
-      ],
-      "keywords": [
-        "eta",
-        "vendor",
-        "comment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
-        "2025-09-12T00:00:00",
-        "2025-07-31T15:57:53"
+        "2025-09-12T00:00:00"
       ]
     },
     "invoice_status": {
       "name": "invoice_status",
-      "title": "Invoice Status",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Invoice Status' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Invoice Status",
-        "filter using Invoice Status",
-        "group by Invoice Status"
-      ],
-      "synonyms": [
-        "invoice status",
-        "invoice_status",
-        "invoice status"
-      ],
-      "keywords": [
-        "invoice",
-        "status"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "invoice booked yes or no - invoice",
         "grn no:sc/cdm/2025/0562  - submitted to finance on 02-may-2025",
@@ -1362,25 +591,7 @@
     },
     "remarks_user": {
       "name": "remarks_user",
-      "title": "Remarks User",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Remarks User' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Remarks User",
-        "filter using Remarks User",
-        "group by Remarks User"
-      ],
-      "synonyms": [
-        "remarks user",
-        "remarks_user",
-        "remarks user"
-      ],
-      "keywords": [
-        "remarks",
-        "user"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "payment is pending",
         "no pending po are there"
@@ -1388,76 +599,19 @@
     },
     "payment_value_finance_team": {
       "name": "payment_value_finance_team",
-      "title": "Payment Value Finance Team",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Payment Value Finance Team' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Payment Value Finance Team",
-        "filter using Payment Value Finance Team",
-        "group by Payment Value Finance Team"
-      ],
-      "synonyms": [
-        "payment value finance team",
-        "payment_value_finance_team",
-        "payment value finance team"
-      ],
-      "keywords": [
-        "payment",
-        "value",
-        "finance",
-        "team"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": []
     },
     "balance_payment": {
       "name": "balance_payment",
-      "title": "Balance Payment",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Balance Payment' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Balance Payment",
-        "filter using Balance Payment",
-        "group by Balance Payment"
-      ],
-      "synonyms": [
-        "balance payment",
-        "balance_payment",
-        "balance payment"
-      ],
-      "keywords": [
-        "balance",
-        "payment"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "deduct from gross value"
       ]
     },
     "date_pt_desk": {
       "name": "date_pt_desk",
-      "title": "Date Pt Desk",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Date Pt Desk' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Date Pt Desk",
-        "filter using Date Pt Desk",
-        "group by Date Pt Desk"
-      ],
-      "synonyms": [
-        "date pt desk",
-        "date_pt_desk",
-        "date pt desk"
-      ],
-      "keywords": [
-        "date",
-        "pt",
-        "desk"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2025-07-31T00:00:00",
         "2025-08-07T00:00:00",
@@ -1469,26 +623,7 @@
     },
     "pt_desk_remarks": {
       "name": "pt_desk_remarks",
-      "title": "Pt Desk Remarks",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Pt Desk Remarks' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Pt Desk Remarks",
-        "filter using Pt Desk Remarks",
-        "group by Pt Desk Remarks"
-      ],
-      "synonyms": [
-        "pt desk remarks",
-        "pt_desk_remarks",
-        "pt desk remarks"
-      ],
-      "keywords": [
-        "pt",
-        "desk",
-        "remarks"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "busy",
         "the subject part was told not to manufacture, hence it is not manufactured.",
@@ -1497,24 +632,7 @@
     },
     "status": {
       "name": "status",
-      "title": "Status",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Status' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Status",
-        "filter using Status",
-        "group by Status"
-      ],
-      "synonyms": [
-        "status",
-        "status",
-        "status"
-      ],
-      "keywords": [
-        "status"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "work in progress",
         "open"
@@ -1522,50 +640,14 @@
     },
     "uploaded_date": {
       "name": "uploaded_date",
-      "title": "Uploaded Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Uploaded Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Uploaded Date",
-        "filter using Uploaded Date",
-        "group by Uploaded Date"
-      ],
-      "synonyms": [
-        "uploaded date",
-        "uploaded_date",
-        "uploaded date"
-      ],
-      "keywords": [
-        "uploaded",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": [
         "2025-07-31T15:57:53"
       ]
     },
     "completed_date": {
       "name": "completed_date",
-      "title": "Completed Date",
       "type": "object",
-      "category": "unknown",
-      "description": "This column represents 'Completed Date' in the procurement workflow.\nIt stores structured information used for filtering, grouping,\nand answering business questions about transactions.",
-      "user_intent_examples": [
-        "show records by Completed Date",
-        "filter using Completed Date",
-        "group by Completed Date"
-      ],
-      "synonyms": [
-        "completed date",
-        "completed_date",
-        "completed date"
-      ],
-      "keywords": [
-        "completed",
-        "date"
-      ],
-      "normalization": "Values are stored in lowercase and trimmed for consistent matching.",
       "sample_values": []
     }
   }

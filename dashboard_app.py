@@ -436,7 +436,7 @@ def build_prompt(user_query, kb, memory, error=""):
 
     return f"""
 You convert natural language to SQLite queries.
-dont show whole data as output if output is too large, just give insights in business terms.
+
 Think step by step. Only use columns from the knowledge base. If you make a mistake, learn from the error and try again.
 
 Conversation memory:
@@ -607,41 +607,75 @@ user_input = st.chat_input("Ask your data question...")
 
 if user_input:
 
-    memory_text = "\n".join(st.session_state.memory[-5:])
-    kb = load_knowledge()
+    # save user message immediately
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
 
-    raw_output = llm(build_prompt(user_input, kb, memory_text))
-    sql = extract_sql(raw_output)
-    sql = normalize_sql_quotes(sql)
-
-
-    if validate_sql(sql, kb):
-        df = run_sql(sql)
-    else:
-        df = "Invalid SQL"
-
-    st.session_state.memory.append(user_input)
-    st.session_state.messages.append((user_input, df, sql))
-
-for q, ans, sql in st.session_state.messages:
-
-    with st.chat_message("user"):
-        st.write(q)
-
+    # assistant placeholder
     with st.chat_message("assistant"):
+        placeholder = st.empty()
+        placeholder.markdown("🤖 Thinking...")
 
-        if isinstance(ans, pd.DataFrame):
-            st.dataframe(ans, width='stretch')
-            auto_chart(ans)
+        memory_text = "\n".join(
+            m["content"] for m in st.session_state.messages[-5:]
+            if m["role"] == "user"
+        )
 
-            insights = generate_insights(ans)
-            st.markdown("💡 Key Insights")
-            st.write(insights)
+        kb = load_knowledge()
+
+        try:
+            raw_output = llm(build_prompt(user_input, kb, memory_text))
+            sql = extract_sql(raw_output)
+            sql = normalize_sql_quotes(sql)
+
+            if validate_sql(sql, kb):
+                df = run_sql(sql)
+                result = df
+            else:
+                result = "Invalid SQL"
+
+        except Exception as e:
+            result = str(e)
+            sql = ""
+
+        placeholder.empty()
+
+    # save assistant message
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": result,
+        "sql": sql
+    })
+
+# 🔥 render chat history ONCE
+for msg in st.session_state.messages:
+
+    with st.chat_message(msg["role"]):
+
+        if msg["role"] == "assistant":
+
+            content = msg["content"]
+
+            if isinstance(content, pd.DataFrame):
+                st.dataframe(content, width='stretch')
+                auto_chart(content)
+
+                insights = generate_insights(content)
+                st.markdown("💡 Key Insights")
+                st.write(insights)
+
+            else:
+                st.write(content)
+
+            if msg.get("sql"):
+                st.code(msg["sql"], language="sql")
 
         else:
-            st.write(ans)
+            st.write(msg["content"])
 
-        st.code(sql, language="sql")
+
 
 # ============================================================
 # DASHBOARD MODE
